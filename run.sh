@@ -1,0 +1,12 @@
+#!/usr/bin/env bash
+
+set -euo pipefail
+
+cur_dir="$( cd "$( dirname "${BASH_SOURCE[0]}" )" > /dev/null && pwd )"
+
+service=$1
+default_branch=$2
+migration_name=$3
+migration_command=$4
+
+cd $cur_dir/src/ordnungsamt; clojure -m core "$service" "$default_branch" "$migration_name" "$migration_command"

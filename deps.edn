@@ -1,0 +1,32 @@
+{:mvn/repos {"central" {:url "https://repo1.maven.org/maven2/"},
+             "clojars" {:url "https://clojars.org/repo/"},
+             "nu-maven" {:url "s3://nu-maven/releases/"}}
+ :paths ["src"]
+ :deps {org.clojure/clojure {:mvn/version "1.10.1"}
+        instaparse {:mvn/version "1.4.10"}
+        common-github {:mvn/version "3.4.0"}
+        nubank/cicd-http-client {:git/url "git@github.com:nubank/cicd-http-client.git"
+                                 :sha     "e568002cd6f7d605833a2f06b02b5188f92e6ea8"}
+        http-kit {:mvn/version "2.4.0-alpha3"}
+        rewrite-clj {:mvn/version "0.6.1"}
+        common-refactor {:mvn/version "0.3.2"}
+        common-core {:mvn/version "15.5.0"}
+        cljfmt {:mvn/version "0.6.7"}
+        nsorg {:mvn/version "0.2.0"}
+        cheshire {:mvn/version "5.10.0"}}
+ :aliases
+ {:test {:extra-paths ["test" "test-resources"]
+         :extra-deps {org.clojure/test.check {:mvn/version "0.10.0"}
+                      nubank/matcher-combinators {:mvn/version "3.1.4"}
+                      http-kit.fake {:mvn/version "0.2.2"}
+                      robert/hooke {:mvn/version "1.3.0"}}}
+  :test-runner {:extra-deps {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                                        :sha "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
+                :main-opts ["-m" "cognitect.test-runner"]}
+  :build-uberjar {:extra-deps {seancorfield/depstar {:mvn/version "1.0.94"}}
+                           :main-opts ["-m"
+                                       "hf.depstar.uberjar"
+                                       "target/ordnungsamt.jar"
+                                       "-C"
+                                       "-m"
+                                       "ordnungsamt.core"]}}}
