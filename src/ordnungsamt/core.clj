@@ -1,15 +1,12 @@
 (ns ordnungsamt.core
   (:require [clojure.string :as string]
             [clojure.java.shell :refer [sh]]
-            [common-core.time :as time]
             [common-github.changeset :as changeset]
             [common-github.httpkit-client :as github-client]
             [common-github.issue :as issue]
             [common-github.pull :as pull]
             [common-github.token :as token])
   (:gen-class))
-
-(def org "nubank")
 
 (defn- print-process-output [{:keys [exit out err]}]
   (letfn [(print-lines [output]
@@ -21,9 +18,9 @@
       (print-lines err))))
 
 (defn create-migration-pr!
-  [client org service branch-name default-branch migration-name]
+  [client org service branch-name default-branch migration-details]
   (let [{:keys [number]} (pull/create-pull! client org {:repo   service
-                                                        :title  migration-name
+                                                        :title  migration-details
                                                         :branch branch-name
                                                         :base   default-branch
                                                         :body   ""})]
@@ -46,26 +43,50 @@
        (map (fn [filepath] [filepath (slurp (str repo "/" filepath))]))
        (assoc changeset :changes)))
 
-(defn- push-to-github! [client service default-branch migration-name]
-  (let [target-branch   migration-name
-        commit-message (str "the ordnungsamt applying " migration-name)
-        files-for-pr   (files-to-commit service)]
-    (-> (changeset/from-branch! client org service default-branch)
-        (add-file-changes service files-for-pr)
-        (changeset/commit! commit-message)
-        (changeset/create-branch! target-branch))
-    (create-migration-pr! client org service target-branch default-branch migration-name)))
+(defn- apply-migration! [{:keys [command name date] :as _migration} service]
+  (let [{:keys [exit] :as output} (sh command :dir service)]
+    (print-process-output output)
+    (zero? exit)))
 
-(defn -main [& [service default-branch migration-name migration-shell-command]]
-  (let [client (github-client/new-client {:token-fn (token/default-chain
-                                                      "nu-secrets-br"
-                                                      "go/agent/release-lib/bumpito_secrets.json")})]
-    (let [{:keys [exit] :as output} (sh migration-shell-command :dir service)]
-      (print-process-output output)
+(defn- apply+commit-migration! [service base-changeset {:keys [name description] :as migration}]
+  (let [commit-message (str "the ordnungsamt applying " name)
+        files-for-pr   (files-to-commit service)
+        success?       (apply-migration! migration service)]
+    (when (and success? (has-changes? service))
+      {:changeset   (-> base-changeset
+                        (add-file-changes service files-for-pr)
+                        (changeset/commit! commit-message))
+       :description description})))
 
-      (when (and (has-changes? service)
-                 (zero? exit))
-        (push-to-github! client service default-branch migration-name))
+(defn- push-to-github! [client org service default-branch changeset migration-details]
+  (let [target-branch  (str "auto-refactor-"
+                            (.format (java.text.SimpleDateFormat. "yyyy-MM-dd")
+                                     (new java.util.Date)))]
+    (changeset/create-branch! changeset target-branch)
+    (create-migration-pr! client org service target-branch default-branch migration-details)))
 
-      (shutdown-agents)
-      (System/exit exit))))
+(def ^:private migrations
+  [{:name          :sample-migration
+    :description   ""
+    :creation-date "2021-03-16"
+    :command       ""}])
+
+(defn run-migrations! [github-client organization service default-branch migrations]
+  (let [run-migration!      (fn [[current-changeset details] migration]
+                              (if-let [{:keys [changeset description]} (apply+commit-migration! service current-changeset migration)]
+                                [changeset (conj details description)]
+                                [current-changeset details]))
+        [changeset details] (reduce run-migration!
+                                    [(changeset/from-branch! github-client organization service default-branch) []]
+                                    migrations)]
+    (when (seq details)
+      (push-to-github! github-client organization service default-branch changeset details))))
+
+(defn -main [& [service default-branch]]
+  (let [org "nubank"
+        github-client (github-client/new-client {:token-fn (token/default-chain
+                                                             "nu-secrets-br"
+                                                             "go/agent/release-lib/bumpito_secrets.json")})]
+    (run-migrations! github-client org service default-branch migrations)
+    (shutdown-agents)
+    (System/exit 0)))
