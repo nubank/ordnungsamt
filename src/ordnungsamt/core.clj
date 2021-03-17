@@ -18,13 +18,13 @@
       (print-lines err))))
 
 (defn create-migration-pr!
-  [client org service branch-name default-branch migration-details]
-  (let [{:keys [number]} (pull/create-pull! client org {:repo   service
+  [{:keys [client repo branch org] :as changeset} branch-name migration-details]
+  (let [{:keys [number]} (pull/create-pull! client org {:repo   repo
                                                         :title  migration-details
                                                         :branch branch-name
-                                                        :base   default-branch
+                                                        :base   branch
                                                         :body   ""})]
-    (issue/add-label! client org service number "auto-migration")))
+    (issue/add-label! client org repo number "auto-migration")))
 
 (defn files-to-commit [dir]
   (let [modified (sh "git" "ls-files" "--modified" "--exclude-standard" :dir dir)
@@ -38,32 +38,41 @@
 (defn- has-changes? [service]
   (not (zero? (:exit (sh "git" "diff-index" "--quiet" "HEAD" :dir service)))))
 
+(defn- drop-changes! [dir]
+  (let [added (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir)]
+    (run! #(sh "rm" % :dir dir) added))
+  (sh "git" "stash" :dir dir)
+  (sh "git" "stash" "drop" :dir dir))
+
 (defn- add-file-changes [changeset repo files]
   (->> files
        (map (fn [filepath] [filepath (slurp (str repo "/" filepath))]))
        (assoc changeset :changes)))
 
 (defn- apply-migration! [{:keys [command name date] :as _migration} service]
-  (let [{:keys [exit] :as output} (sh command :dir service)]
+  (let [{:keys [exit] :as output} (sh command :dir service)
+        success?                  (zero? exit)]
     (print-process-output output)
-    (zero? exit)))
+    (when (not success?)
+      (drop-changes! service))
+    success?))
 
-(defn- apply+commit-migration! [service base-changeset {:keys [name description] :as migration}]
+(defn- apply+commit-migration! [{:keys [repo] :as base-changeset} {:keys [name description] :as migration}]
   (let [commit-message (str "the ordnungsamt applying " name)
-        files-for-pr   (files-to-commit service)
-        success?       (apply-migration! migration service)]
-    (when (and success? (has-changes? service))
+        files-for-pr   (files-to-commit repo)
+        success?       (apply-migration! migration repo)]
+    (when (and success? (has-changes? repo))
       {:changeset   (-> base-changeset
-                        (add-file-changes service files-for-pr)
+                        (add-file-changes repo files-for-pr)
                         (changeset/commit! commit-message))
        :description description})))
 
-(defn- push-to-github! [client org service default-branch changeset migration-details]
+(defn- push-to-github! [changeset migration-details]
   (let [target-branch  (str "auto-refactor-"
                             (.format (java.text.SimpleDateFormat. "yyyy-MM-dd")
                                      (new java.util.Date)))]
     (changeset/create-branch! changeset target-branch)
-    (create-migration-pr! client org service target-branch default-branch migration-details)))
+    (create-migration-pr! changeset target-branch migration-details)))
 
 (def ^:private migrations
   [{:name          :sample-migration
@@ -71,16 +80,17 @@
     :creation-date "2021-03-16"
     :command       ""}])
 
+(defn- run-migration! [[current-changeset details] migration]
+  (if-let [{:keys [changeset description]} (apply+commit-migration! current-changeset migration)]
+    [changeset (conj details description)]
+    [current-changeset details]))
+
 (defn run-migrations! [github-client organization service default-branch migrations]
-  (let [run-migration!      (fn [[current-changeset details] migration]
-                              (if-let [{:keys [changeset description]} (apply+commit-migration! service current-changeset migration)]
-                                [changeset (conj details description)]
-                                [current-changeset details]))
-        [changeset details] (reduce run-migration!
+  (let [[changeset details] (reduce run-migration!
                                     [(changeset/from-branch! github-client organization service default-branch) []]
                                     migrations)]
     (when (seq details)
-      (push-to-github! github-client organization service default-branch changeset details))))
+      (push-to-github! changeset details))))
 
 (defn -main [& [service default-branch]]
   (let [org "nubank"
