@@ -9,11 +9,6 @@
             [ordnungsamt.render :as render])
   (:gen-class))
 
-(def ^:dynamic *base-directory* "")
-
-(defn- repo->dir [repo]
-  (str *base-directory* repo))
-
 (defn- today []
   (.format (java.text.SimpleDateFormat. "yyyy-MM-dd")
            (new java.util.Date)))
@@ -68,19 +63,22 @@
        (map (fn [filepath] [filepath (slurp (str repo "/" filepath))]))
        (assoc changeset :changes)))
 
-(defn- apply-migration! [{:keys [command name date] :as _migration} service]
-  (let [{:keys [exit] :as output} (sh command :dir service)
+(defn- apply-migration! [{:keys [command name date] :as _migration} dir]
+  (let [{:keys [exit] :as output} (sh command :dir dir)
         success?                  (zero? exit)]
     (print-process-output output)
     (when (not success?)
-      (drop-changes! (repo->dir service)))
+      (drop-changes! dir))
     success?))
 
-(defn- apply+commit-migration! [{:keys [repo] :as base-changeset} {:keys [name description] :as migration}]
-  (let [repo-dir       (repo->dir repo)
+(defn- apply+commit-migration!
+  [base-dir
+   {:keys [repo] :as base-changeset}
+   {:keys [name description] :as migration}]
+  (let [repo-dir       (str base-dir repo)
         commit-message (str "the ordnungsamt applying " name)
         files-for-pr   (files-to-commit repo-dir)
-        success?       (apply-migration! migration repo)]
+        success?       (apply-migration! migration repo-dir)]
     (when (and success? (has-changes? repo-dir))
       {:changeset   (-> base-changeset
                         (add-file-changes repo-dir files-for-pr)
@@ -99,13 +97,13 @@
     :created-at  "2021-03-16"
     :command     ""}])
 
-(defn- run-migration! [[current-changeset details] migration]
-  (if-let [{:keys [changeset description]} (apply+commit-migration! current-changeset migration)]
+(defn- run-migration! [base-dir [current-changeset details] migration]
+  (if-let [{:keys [changeset description]} (apply+commit-migration! base-dir current-changeset migration)]
     [changeset (conj details description)]
     [current-changeset details]))
 
-(defn run-migrations! [github-client organization service default-branch migrations]
-  (let [[changeset details] (reduce run-migration!
+(defn run-migrations! [github-client organization service default-branch base-dir migrations]
+  (let [[changeset details] (reduce (partial run-migration! base-dir)
                                     [(changeset/from-branch! github-client organization service default-branch) []]
                                     migrations)]
     (when (seq details)
