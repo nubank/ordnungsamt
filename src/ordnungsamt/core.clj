@@ -9,6 +9,11 @@
             [ordnungsamt.render :as render])
   (:gen-class))
 
+(def ^:dynamic *base-directory* "")
+
+(defn- repo->dir [repo]
+  (str *base-directory* repo))
+
 (defn- today []
   (.format (java.text.SimpleDateFormat. "yyyy-MM-dd")
            (new java.util.Date)))
@@ -38,17 +43,19 @@
                                                         :body pr-description})]
     (issue/add-label! client org repo number "auto-migration")))
 
+(defn out->list [{:keys [out]}]
+  (remove empty? (string/split out #"\n")))
+
 (defn files-to-commit [dir]
-  (let [modified (sh "git" "ls-files" "--modified" "--exclude-standard" :dir dir)
-        deleted  (sh "git" "ls-files" "--deleted" "--exclude-standard" :dir dir)
-        added    (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir)
-        out->list (fn [{:keys [out]}] (remove empty? (string/split out #"\n")))]
+  (let [modified  (sh "git" "ls-files" "--modified" "--exclude-standard" :dir dir)
+        deleted   (sh "git" "ls-files" "--deleted" "--exclude-standard" :dir dir)
+        added     (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir)]
     (set (concat (out->list modified)
                  (out->list deleted)
                  (out->list added)))))
 
-(defn- has-changes? [service]
-  (not (zero? (:exit (sh "git" "diff-index" "--quiet" "HEAD" :dir service)))))
+(defn- has-changes? [dir]
+  (not (zero? (:exit (sh "git" "diff-index" "--quiet" "HEAD" :dir dir)))))
 
 (defn- drop-changes! [dir]
   (let [added (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir)]
@@ -66,16 +73,17 @@
         success?                  (zero? exit)]
     (print-process-output output)
     (when (not success?)
-      (drop-changes! service))
+      (drop-changes! (repo->dir service)))
     success?))
 
 (defn- apply+commit-migration! [{:keys [repo] :as base-changeset} {:keys [name description] :as migration}]
-  (let [commit-message (str "the ordnungsamt applying " name)
-        files-for-pr   (files-to-commit repo)
+  (let [repo-dir       (repo->dir repo)
+        commit-message (str "the ordnungsamt applying " name)
+        files-for-pr   (files-to-commit repo-dir)
         success?       (apply-migration! migration repo)]
-    (when (and success? (has-changes? repo))
+    (when (and success? (has-changes? repo-dir))
       {:changeset   (-> base-changeset
-                        (add-file-changes repo files-for-pr)
+                        (add-file-changes repo-dir files-for-pr)
                         (changeset/commit! commit-message))
        :description description})))
 
