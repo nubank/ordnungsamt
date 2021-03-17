@@ -5,8 +5,13 @@
             [common-github.httpkit-client :as github-client]
             [common-github.issue :as issue]
             [common-github.pull :as pull]
-            [common-github.token :as token])
+            [common-github.token :as token]
+            [ordnungsamt.render :as render])
   (:gen-class))
+
+(defn- today []
+  (.format (java.text.SimpleDateFormat. "yyyy-MM-dd")
+           (new java.util.Date)))
 
 (defn- print-process-output [{:keys [exit out err]}]
   (letfn [(print-lines [output]
@@ -17,13 +22,20 @@
     (when-not (zero? exit)
       (print-lines err))))
 
+(defn render-pr-description! [client migration-details]
+  (let [context {:date       (today)
+                 :migrations migration-details}]
+    {:pr-title       (render/render-title context)
+     :pr-description (render/render-pr context)}))
+
 (defn create-migration-pr!
   [{:keys [client repo branch org] :as changeset} branch-name migration-details]
-  (let [{:keys [number]} (pull/create-pull! client org {:repo   repo
-                                                        :title  migration-details
+  (let [{:keys [pr-title pr-description]} (render-pr-description! client migration-details)
+        {:keys [number]} (pull/create-pull! client org {:repo   repo
+                                                        :title  pr-title
                                                         :branch branch-name
                                                         :base   branch
-                                                        :body   ""})]
+                                                        :body pr-description})]
     (issue/add-label! client org repo number "auto-migration")))
 
 (defn files-to-commit [dir]
@@ -69,16 +81,16 @@
 
 (defn- push-to-github! [changeset migration-details]
   (let [target-branch  (str "auto-refactor-"
-                            (.format (java.text.SimpleDateFormat. "yyyy-MM-dd")
-                                     (new java.util.Date)))]
+                            (today))]
     (changeset/create-branch! changeset target-branch)
     (create-migration-pr! changeset target-branch migration-details)))
 
 (def ^:private migrations
-  [{:name          :sample-migration
-    :description   ""
-    :creation-date "2021-03-16"
-    :command       ""}])
+  [{:title       "Sample migration"
+    :description ""
+    :created-at  "2021-03-16"
+    :directory   ""
+    :command     ""}])
 
 (defn- run-migration! [[current-changeset details] migration]
   (if-let [{:keys [changeset description]} (apply+commit-migration! current-changeset migration)]
