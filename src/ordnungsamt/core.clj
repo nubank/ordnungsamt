@@ -89,7 +89,6 @@
   [{:title       "Sample migration"
     :description ""
     :created-at  "2021-03-16"
-    :directory   ""
     :command     ""}])
 
 (defn- run-migration! [[current-changeset details] migration]

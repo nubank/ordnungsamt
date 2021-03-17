@@ -1,6 +1,5 @@
 (ns ordnungsamt.render
-  (:require [selmer.filters]
-            [clojure.string]
+  (:require [clojure.string]
             [selmer.parser :as selmer]
             [selmer.util :refer [without-escaping]]))
 
