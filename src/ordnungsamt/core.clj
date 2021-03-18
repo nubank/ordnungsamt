@@ -53,7 +53,7 @@
   (not (zero? (:exit (sh "git" "diff-index" "--quiet" "HEAD" :dir dir)))))
 
 (defn- drop-changes! [dir]
-  (let [added (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir)]
+  (let [added (out->list (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir))]
     (run! #(sh "rm" % :dir dir) added))
   (sh "git" "stash" :dir dir)
   (sh "git" "stash" "drop" :dir dir))
@@ -64,7 +64,7 @@
        (assoc changeset :changes)))
 
 (defn- apply-migration! [{:keys [command name date] :as _migration} dir]
-  (let [{:keys [exit] :as output} (sh command :dir dir)
+  (let [{:keys [exit] :as output} (apply sh (concat command [:dir dir]))
         success?                  (zero? exit)]
     (print-process-output output)
     (when (not success?)
