@@ -1,18 +1,14 @@
 (ns integration.aux.init
   (:require [clojure.java.shell :refer [sh]]
             [clojure.java.io :as io]
-            [ordnungsamt.core :as core]
+            [common-github.httpkit-client :as client]
+            [org.httpkit.fake :as fake]
+            [common-github-mock.httpkit-fake :as httpkit-fake]
             [common-github.changeset :as changeset]
-            [common-github.protocols.client :as protocols.client]
             [common-github.repository :as repository]
-            [common-github-mock.core :as mock]
-            [common-github-mock.repos :as repos])
-    (:import [common_github_mock.core Mock]))
-
-(extend-protocol protocols.client/Client
-  Mock
-  (request [this req-map]
-    (this req-map)))
+            [common-github-mock.repos :as repos]
+            [ordnungsamt.core :as core]
+            [state-flow.api :as flow]))
 
 (defn run-commands! [commands]
   (reduce (fn [last-result command]
@@ -48,7 +44,5 @@
                                 ["git" "add" "4'33" "clouds.md" "fanon.clj" :dir repo-dir]
                                 ["git" "commit" "-m" "initial commit" :dir repo-dir]
                                 ["ls" repo-dir]])]
-      (let [mock-client (mock/new-mock)]
-        (repos/setup-repo! mock-client org repository)
-        (seed-mock-git-repo! mock-client org repository files repo-dir)
+      (let [mock-client (client/new-client {:token-fn (constantly "token")})]
         {:system {:github-client mock-client}}))))

@@ -6,7 +6,7 @@
         selmer              {:mvn/version "1.12.33"}
         common-github       {:mvn/version "3.4.2-SNAPSHOT"}
         common-core         {:mvn/version "15.19.0-202103161828PR826"}
-        common-github-mock  {:mvn/version "0.2.0-SNAPSHOT"}
+        common-github-mock  {:mvn/version "0.3.0-SNAPSHOT"}
         http-kit            {:mvn/version "2.4.0-alpha3"}
         cheshire            {:mvn/version "5.10.0"}}
  :aliases
@@ -14,6 +14,7 @@
          :extra-deps {org.clojure/test.check     {:mvn/version "0.10.0"}
                       nubank/matcher-combinators {:mvn/version "3.1.4"}
                       nubank/state-flow          {:mvn/version "5.11.2"}
+                      state-flow-helpers         {:mvn/version "9.8.0"}
                       http-kit.fake              {:mvn/version "0.2.2"}
                       robert/hooke               {:mvn/version "1.3.0"}}}
   :test-runner {:extra-deps {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"

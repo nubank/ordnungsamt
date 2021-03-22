@@ -1,5 +1,6 @@
 (ns integration.apply-migrations-test
   (:require [cats.core :as m]
+            [common-github.state-flow-helper :refer [mock-github-flow]]
             [clojure.test :refer :all]
             [common-github.changeset :as changeset]
             [common-github.repository :as repository]
@@ -60,6 +61,13 @@
   {:init       (aux.init/seed-fake-service-repo! base-dir repository)
    :fail-fast? true
    :cleanup    (aux.init/cleanup-fake-service-repo! base-dir repository)}
+  (mock-github-flow {:repos
+                     {:orgs [{:name org
+                              :repos [{:name           repository
+                                       :default_branch "master"}]}]}}
+
+  (with-github-client
+    #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repo-dir))
 
   (file-exists? "clouds.md")
   (file-exists? "4'33")
@@ -77,4 +85,4 @@
   #_(match? ["A\t4'33"
            "A\tclouds.md"
            "A\tfanon.clj"]
-          (aux.git/git-files-changed repo-dir)))
+          (aux.git/git-files-changed repo-dir))))
