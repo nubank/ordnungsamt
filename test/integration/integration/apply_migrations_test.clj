@@ -33,7 +33,7 @@
 
 (defn file-exists? [file]
   (flow (str "file '" file "' is present")
-        (match? (comp not empty?)
+        (match? (comp not nil?)
                 (with-github-client #(repository/get-content! % org repository file)))))
 
 (defn file-absent? [file]
