@@ -1,6 +1,7 @@
 (ns integration.apply-migrations-test
   (:require [cats.core :as m]
             [clojure.test :refer :all]
+            [common-github.changeset :as changeset]
             [integration.aux.git :as aux.git]
             [integration.aux.init :as aux.init]
             [ordnungsamt.core :as core]
@@ -49,6 +50,9 @@
 
   (with-github-client
     #(core/run-migrations! % "nubank" repository "master" base-dir migrations))
+
+  (match? empty?
+          (with-github-client #(changeset/get-content % "clouds.md")))
 
   (match? ["initial commit"]
           (aux.git/git-commit-messages repo-dir))
