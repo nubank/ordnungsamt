@@ -1,5 +1,7 @@
 (ns ordnungsamt.core
   (:require [clojure.string :as string]
+            [clojure.java.io :as io]
+            clojure.set
             [clojure.java.shell :refer [sh]]
             [common-github.changeset :as changeset]
             [common-github.httpkit-client :as github-client]
@@ -42,12 +44,18 @@
   (remove empty? (string/split out #"\n")))
 
 (defn files-to-commit [dir]
-  (let [modified  (sh "git" "ls-files" "--modified" "--exclude-standard" :dir dir)
-        deleted   (sh "git" "ls-files" "--deleted" "--exclude-standard" :dir dir)
-        added     (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir)]
-    {:modified (out->list modified)
-     :deleted  (out->list deleted)
-     :added    (out->list added)}))
+  (let [modified  (->> (sh "git" "ls-files" "--modified" "--exclude-standard" :dir dir)
+                       out->list
+                       (into #{}))
+        deleted   (->> (sh "git" "ls-files" "--deleted" "--exclude-standard" :dir dir)
+                       out->list
+                       (into #{}))
+        added     (->> (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir)
+                       out->list
+                       (into #{}))]
+    {:modified (clojure.set/difference modified deleted)
+     :deleted  deleted
+     :added    added}))
 
 (defn sh! [& args]
   (let [{:keys [exit out err] :as result} (apply sh args)]
@@ -67,12 +75,16 @@
 (defn- local-commit! [{:keys [modified deleted added]} dir]
   (run! (fn [file] (sh! "git" "add" file :dir dir)) (concat modified added))
   (run! (fn [file] (sh! "git" "rm" file :dir dir)) deleted)
-  (sh! "git" "commit" "-m" "" :dir dir))
+  (sh! "git" "commit" "-m" "migration applied" :dir dir))
 
 (defn- add-file-changes [changeset repo files]
-  (->> files
-       (map (fn [filepath] [filepath (slurp (str repo "/" filepath))]))
-       (assoc changeset :changes)))
+  (reduce (fn [changeset filepath]
+            (let [file (io/file (str repo "/" filepath))]
+              (if (.exists file)
+                (changeset/put-content changeset filepath (slurp file))
+                (changeset/delete changeset filepath))))
+    changeset
+    files))
 
 (defn- apply-migration! [{:keys [command name date] :as _migration} dir]
   (let [{:keys [exit] :as output} (apply sh (concat command [:dir dir]))
@@ -93,11 +105,11 @@
     (println title)
     (println files-for-pr)
     (when (and success? (has-changes? repo-dir))
-      (local-commit! files-for-pr repo-dir)
       {:changeset   (-> base-changeset
-                        (add-file-changes repo-dir (->> files-for-pr vals concat (into #{})))
+                        (add-file-changes repo-dir (->> files-for-pr vals (apply clojure.set/union)))
                         (changeset/commit! commit-message))
-       :description description})))
+       :description description}
+      (local-commit! files-for-pr repo-dir))))
 
 (defn- push-to-github! [changeset migration-details]
   (let [target-branch  (str "auto-refactor-"

@@ -2,6 +2,7 @@
   (:require [cats.core :as m]
             [clojure.test :refer :all]
             [common-github.changeset :as changeset]
+            [common-github.repository :as repository]
             [integration.aux.git :as aux.git]
             [integration.aux.init :as aux.init]
             [ordnungsamt.core :as core]
@@ -28,36 +29,52 @@
 (def base-dir "target/")
 (def repository "example-repo")
 (def repo-dir (str base-dir repository))
+(def org "nubank")
+
+(defn file-exists? [file]
+  (flow (str "file '" file "' is present")
+        (match? (comp not empty?)
+                (with-github-client #(repository/get-content! % org repository file)))))
+
+(defn file-absent? [file]
+  (flow (str "file '" file "' is absent")
+        (match? nil?
+                (with-github-client #(repository/get-content! % org repository file)))))
 
 (def migrations
   [{:title       "Uncage silence"
     :description "Silence doesn't need a container"
     :created-at  "2021-03-16"
     :command     ["../../test-resources/migration-a.sh"]}
-   {:title       "Failing migration"
+   #_{:title       "Failing migration"
     :description "Change some things then fail"
     :created-at  "2021-03-17"
     :command     ["../../test-resources/migration-b.sh"]}
-   {:title       "move file + update contents"
+   #_{:title       "move file + update contents"
     :description "Renames a file and also alters its contents"
     :created-at  "2021-03-17"
-    :command     ["../../test-resources/migration-c.sh"]}])
+    :command     ["../../test-resources/migration-c.sh"]}
+   ])
 
 (defflow apply-two-migrations
   {:init       (aux.init/seed-fake-service-repo! base-dir repository)
    :fail-fast? true
    :cleanup    (aux.init/cleanup-fake-service-repo! base-dir repository)}
 
+  (file-exists? "clouds.md")
+  (file-exists? "4'33")
+  (file-exists? "fanon.clj")
+
   (with-github-client
-    #(core/run-migrations! % "nubank" repository "master" base-dir migrations))
+    #(core/run-migrations! % org repository "master" base-dir migrations))
 
-  (match? empty?
-          (with-github-client #(changeset/get-content % "clouds.md")))
+  (file-exists? "clouds.md")
+  (file-absent? "4'33")
 
-  (match? ["initial commit"]
+  #_(match? ["initial commit"]
           (aux.git/git-commit-messages repo-dir))
 
-  (match? ["A\t4'33"
+  #_(match? ["A\t4'33"
            "A\tclouds.md"
            "A\tfanon.clj"]
           (aux.git/git-files-changed repo-dir)))
