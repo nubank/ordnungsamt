@@ -45,9 +45,15 @@
   (let [modified  (sh "git" "ls-files" "--modified" "--exclude-standard" :dir dir)
         deleted   (sh "git" "ls-files" "--deleted" "--exclude-standard" :dir dir)
         added     (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir)]
-    (set (concat (out->list modified)
-                 (out->list deleted)
-                 (out->list added)))))
+    {:modified (out->list modified)
+     :deleted  (out->list deleted)
+     :added    (out->list added)}))
+
+(defn sh! [& args]
+  (let [{:keys [exit out err] :as result} (apply sh args)]
+    (when (not (zero? exit))
+      (throw (ex-info (str "FAILED running command:\n" args "\nerror message:\n" err)
+                      result)))))
 
 (defn- has-changes? [dir]
   (not (zero? (:exit (sh "git" "diff-index" "--quiet" "HEAD" :dir dir)))))
@@ -57,6 +63,11 @@
     (run! #(sh "rm" % :dir dir) added))
   (sh "git" "stash" :dir dir)
   (sh "git" "stash" "drop" :dir dir))
+
+(defn- local-commit! [{:keys [modified deleted added]} dir]
+  (run! (fn [file] (sh! "git" "add" file :dir dir)) (concat modified added))
+  (run! (fn [file] (sh! "git" "rm" file :dir dir)) deleted)
+  (sh! "git" "commit" "-m" "" :dir dir))
 
 (defn- add-file-changes [changeset repo files]
   (->> files
@@ -74,14 +85,17 @@
 (defn- apply+commit-migration!
   [base-dir
    {:keys [repo] :as base-changeset}
-   {:keys [name description] :as migration}]
+   {:keys [title description] :as migration}]
   (let [repo-dir       (str base-dir repo)
-        commit-message (str "the ordnungsamt applying " name)
-        files-for-pr   (files-to-commit repo-dir)
-        success?       (apply-migration! migration repo-dir)]
+        commit-message (str "the ordnungsamt applying " title)
+        success?       (apply-migration! migration repo-dir)
+        files-for-pr   (files-to-commit repo-dir)]
+    (println title)
+    (println files-for-pr)
     (when (and success? (has-changes? repo-dir))
+      (local-commit! files-for-pr repo-dir)
       {:changeset   (-> base-changeset
-                        (add-file-changes repo-dir files-for-pr)
+                        (add-file-changes repo-dir (->> files-for-pr vals concat (into #{})))
                         (changeset/commit! commit-message))
        :description description})))
 
