@@ -32,26 +32,26 @@
 (def repo-dir (str base-dir repository))
 (def org "nubank")
 
-(defn file-exists? [file]
+(defn file-exists? [branch file]
   (flow (str "file '" file "' is present")
         (match? (comp not nil?)
-                (with-github-client #(repository/get-content! % org repository file)))))
+                (with-github-client #(repository/get-content! % org repository file {:branch branch})))))
 
-(defn file-absent? [file]
+(defn file-absent? [branch file]
   (flow (str "file '" file "' is absent")
         (match? nil?
-                (with-github-client #(repository/get-content! % org repository file)))))
+                (with-github-client #(repository/get-content! % org repository file {:branch branch})))))
 
 (def migrations
   [{:title       "Uncage silence"
     :description "Silence doesn't need a container"
     :created-at  "2021-03-16"
     :command     ["../../test-resources/migration-a.sh"]}
-   #_{:title       "Failing migration"
+   {:title       "Failing migration"
     :description "Change some things then fail"
     :created-at  "2021-03-17"
     :command     ["../../test-resources/migration-b.sh"]}
-   #_{:title       "move file + update contents"
+   {:title       "move file + update contents"
     :description "Renames a file and also alters its contents"
     :created-at  "2021-03-17"
     :command     ["../../test-resources/migration-c.sh"]}
@@ -69,20 +69,17 @@
   (with-github-client
     #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repo-dir))
 
-  (file-exists? "clouds.md")
-  (file-exists? "4'33")
-  (file-exists? "fanon.clj")
+  (file-exists? "master" "clouds.md")
+  (file-exists? "master" "4'33")
+  (file-exists? "master" "fanon.clj")
 
   (with-github-client
     #(core/run-migrations! % org repository "master" base-dir migrations))
 
-  (file-exists? "clouds.md")
-  (file-absent? "4'33")
+  (file-exists? "auto-refactor-2021-03-23" "clouds.md")
+  (file-exists? "auto-refactor-2021-03-23" "frantz_fanon.clj")
 
-  #_(match? ["initial commit"]
-          (aux.git/git-commit-messages repo-dir))
+  (file-absent? "auto-refactor-2021-03-23" "fanon.clj")
+  (file-absent? "auto-refactor-2021-03-23" "angela")
+  (file-absent? "auto-refactor-2021-03-23" "4'33")))
 
-  #_(match? ["A\t4'33"
-           "A\tclouds.md"
-           "A\tfanon.clj"]
-          (aux.git/git-files-changed repo-dir))))
