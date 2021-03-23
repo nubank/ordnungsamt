@@ -96,7 +96,7 @@
 
 (defn- apply+commit-migration!
   [base-dir
-   {:keys [repo] :as base-changeset}
+   {:keys [repo branch] :as base-changeset}
    {:keys [title description] :as migration}]
   (let [repo-dir       (str base-dir repo)
         commit-message (str "the ordnungsamt applying " title)
@@ -107,15 +107,12 @@
     (when (and success? (has-changes? repo-dir))
       {:changeset   (-> base-changeset
                         (add-file-changes repo-dir (->> files-for-pr vals (apply clojure.set/union)))
-                        (changeset/commit! commit-message))
+                        (changeset/commit! commit-message)
+                        (assoc :branch branch)
+                        changeset/update-branch!
+                        )
        :description description}
       (local-commit! files-for-pr repo-dir))))
-
-(defn- push-to-github! [changeset migration-details]
-  (let [target-branch  (str "auto-refactor-"
-                            (today))]
-    (changeset/create-branch! changeset target-branch)
-    (create-migration-pr! changeset target-branch migration-details)))
 
 (def ^:private migrations
   [{:title       "Sample migration"
@@ -129,11 +126,15 @@
     [current-changeset details]))
 
 (defn run-migrations! [github-client organization service default-branch base-dir migrations]
-  (let [[changeset details] (reduce (partial run-migration! base-dir)
-                                    [(changeset/from-branch! github-client organization service default-branch) []]
+  (let [target-branch  (str "auto-refactor-" (today))
+        base-changeset (-> github-client
+                           (changeset/from-branch! organization service default-branch)
+                           (changeset/create-branch! target-branch))
+        [changeset details] (reduce (partial run-migration! base-dir)
+                                    [base-changeset []]
                                     migrations)]
     (when (seq details)
-      (push-to-github! changeset details))))
+      (create-migration-pr! changeset details))))
 
 (defn -main [& [service default-branch]]
   (let [org "nubank"
