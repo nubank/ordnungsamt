@@ -44,5 +44,5 @@
       (run-commands! [["cp" "-r" (str "test-resources/" repository "/") base-dir]
                       ["git" "init" "." :dir repo-dir]
                       ["git" "add" "4'33" "clouds.md" "fanon.clj" :dir repo-dir]
-                      ["git" "commit" "-m" "initial commit" :dir repo-dir]])
+                      ["git" "-c" "commit.gpgsign=false" "commit" "-m" "initial commit" :dir repo-dir]])
       {:system {:github-client mock-client}})))

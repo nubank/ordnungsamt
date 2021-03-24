@@ -59,9 +59,9 @@
 (def pr-body string?)
 
 (defflow apply-two-migrations
-  {:init       (aux.init/seed-fake-service-repo! base-dir repository)
+  {:init       (aux.init/setup-service-directory! base-dir repository)
    :fail-fast? true
-   :cleanup    (aux.init/cleanup-fake-service-repo! base-dir repository)}
+   :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
   (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [migration-a migration-c]) "{}"
                                  add-label-request? "{}"]
                      :repos     {:orgs [{:name org
