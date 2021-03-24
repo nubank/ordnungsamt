@@ -24,15 +24,15 @@
     (when-not (zero? exit)
       (print-lines err))))
 
-(defn render-pr-description! [client migration-details]
+(defn render-pr-description! [migration-details]
   (let [context {:date       (today)
                  :migrations migration-details}]
     {:pr-title       (render/render-title context)
      :pr-description (render/render-pr context)}))
 
 (defn create-migration-pr!
-  [{:keys [client repo branch org] :as changeset} migration-details branch-name]
-  (let [{:keys [pr-title pr-description]} (render-pr-description! client migration-details)
+  [{:keys [repo branch org] :as _changeset} migration-details branch-name]
+  (let [{:keys [pr-title pr-description]} (render-pr-description! migration-details)
         {:keys [number]} (pull/create-pull! client org {:repo   repo
                                                         :title  pr-title
                                                         :branch branch-name
@@ -58,7 +58,7 @@
      :added    added}))
 
 (defn sh! [& args]
-  (let [{:keys [exit out err] :as result} (apply sh args)]
+  (let [{:keys [exit err] :as result} (apply sh args)]
     (when (not (zero? exit))
       (throw (ex-info (str "FAILED running command:\n" args "\nerror message:\n" err)
                       result)))))
@@ -86,7 +86,7 @@
           changeset
           files))
 
-(defn- apply-migration! [{:keys [command name date] :as _migration} dir]
+(defn- apply-migration! [{:keys [command] :as _migration} dir]
   (let [{:keys [exit] :as output} (apply sh (concat command [:dir dir]))
         success?                  (zero? exit)]
     (print-process-output output)
@@ -139,6 +139,6 @@
                                                              "nu-secrets-br"
                                                              "go/agent/release-lib/bumpito_secrets.json")})
         target-branch (str "auto-refactor-" (today))]
-    (run-migrations! github-client org service default-branch target-branch migrations)
+    (run-migrations! github-client org service default-branch target-branch "../" migrations)
     (shutdown-agents)
     (System/exit 0)))

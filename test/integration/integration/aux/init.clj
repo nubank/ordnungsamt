@@ -1,18 +1,13 @@
 (ns integration.aux.init
   (:require [clojure.java.io :as io]
             [clojure.java.shell :refer [sh]]
-            [common-github-mock.httpkit-fake :as httpkit-fake]
-            [common-github-mock.repos :as repos]
             [common-github.changeset :as changeset]
             [common-github.httpkit-client :as client]
-            [common-github.repository :as repository]
-            [ordnungsamt.core :as core]
-            [org.httpkit.fake :as fake]
-            [state-flow.api :as flow]))
+            [ordnungsamt.core :as core]))
 
 (defn run-commands! [commands]
-  (reduce (fn [last-result command]
-            (let [{:keys [exit out err] :as result} (apply sh command)]
+  (reduce (fn [_previous-result command]
+            (let [{:keys [exit err] :as result} (apply sh command)]
               (if (zero? exit)
                 (core/out->list result)
                 (do (println (str "FAILED running command:\n" command "\nerror message:\n" err))
@@ -21,7 +16,7 @@
           commands))
 
 (defn cleanup-fake-service-repo! [base-dir repository]
-  (fn [state] (run-commands! [["rm" "-rf" (str base-dir repository)]])))
+  (fn [_state] (run-commands! [["rm" "-rf" (str base-dir repository)]])))
 
 (defn seed-mock-git-repo! [mock-client org repo files repo-dir]
   (let [file-changes (reduce (fn [changeset filepath]
@@ -35,12 +30,11 @@
 
 (defn seed-fake-service-repo! [base-dir repository]
   (fn []
-    (let [repo-dir (str base-dir repository)
-          org       "nubank"
-          files (run-commands! [["cp" "-r" "test-resources/example-repo/" base-dir]
-                                ["git" "init" "." :dir repo-dir]
-                                ["git" "add" "4'33" "clouds.md" "fanon.clj" :dir repo-dir]
-                                ["git" "commit" "-m" "initial commit" :dir repo-dir]
-                                ["ls" repo-dir]])]
-      (let [mock-client (client/new-client {:token-fn (constantly "token")})]
-        {:system {:github-client mock-client}}))))
+    (let [repo-dir    (str base-dir repository)
+          mock-client (client/new-client {:token-fn (constantly "token")})]
+      (run-commands! [["cp" "-r" "test-resources/example-repo/" base-dir]
+                      ["git" "init" "." :dir repo-dir]
+                      ["git" "add" "4'33" "clouds.md" "fanon.clj" :dir repo-dir]
+                      ["git" "commit" "-m" "initial commit" :dir repo-dir]
+                      ["ls" repo-dir]])
+      {:system {:github-client mock-client}})))

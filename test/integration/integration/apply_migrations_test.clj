@@ -1,10 +1,8 @@
 (ns integration.apply-migrations-test
   (:require [cats.core :as m]
             [clojure.test :refer :all]
-            [common-github.changeset :as changeset]
             [common-github.repository :as repository]
             [common-github.state-flow-helper :refer [mock-github-flow]]
-            [integration.aux.git :as aux.git]
             [integration.aux.init :as aux.init]
             [ordnungsamt.core :as core]
             [state-flow.api :refer [defflow flow match?] :as flow]))
