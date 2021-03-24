@@ -54,9 +54,9 @@
    {:title       "move file + update contents"
     :description "Renames a file and also alters its contents"
     :created-at  "2021-03-17"
-    :command     ["../../test-resources/migration-c.sh"]}
-   ])
+    :command     ["../../test-resources/migration-c.sh"]}])
 
+(def migration-branch "auto-refactor-2021-03-24")
 (defflow apply-two-migrations
   {:init       (aux.init/seed-fake-service-repo! base-dir repository)
    :fail-fast? true
@@ -74,12 +74,12 @@
   (file-exists? "master" "fanon.clj")
 
   (with-github-client
-    #(core/run-migrations! % org repository "master" base-dir migrations))
+    #(core/run-migrations! % org repository "master" migration-branch base-dir migrations))
 
-  (file-exists? "auto-refactor-2021-03-23" "clouds.md")
-  (file-exists? "auto-refactor-2021-03-23" "frantz_fanon.clj")
+  (file-exists? migration-branch "clouds.md")
+  (file-exists? migration-branch "frantz_fanon.clj")
 
-  (file-absent? "auto-refactor-2021-03-23" "fanon.clj")
-  (file-absent? "auto-refactor-2021-03-23" "angela")
-  (file-absent? "auto-refactor-2021-03-23" "4'33")))
+  (file-absent? migration-branch "fanon.clj")
+  (file-absent? migration-branch "angela")
+  (file-absent? migration-branch "4'33")))
 

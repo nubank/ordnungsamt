@@ -31,7 +31,7 @@
      :pr-description (render/render-pr context)}))
 
 (defn create-migration-pr!
-  [{:keys [client repo branch org] :as changeset} branch-name migration-details]
+  [{:keys [client repo branch org] :as changeset} migration-details branch-name]
   (let [{:keys [pr-title pr-description]} (render-pr-description! client migration-details)
         {:keys [number]} (pull/create-pull! client org {:repo   repo
                                                         :title  pr-title
@@ -102,17 +102,15 @@
         commit-message (str "the ordnungsamt applying " title)
         success?       (apply-migration! migration repo-dir)
         files-for-pr   (files-to-commit repo-dir)]
-    (println title)
-    (println files-for-pr)
     (when (and success? (has-changes? repo-dir))
-      {:changeset   (-> base-changeset
-                        (add-file-changes repo-dir (->> files-for-pr vals (apply clojure.set/union)))
-                        (changeset/commit! commit-message)
-                        (assoc :branch branch)
-                        changeset/update-branch!
-                        )
-       :description description}
-      (local-commit! files-for-pr repo-dir))))
+      (let [changeset' {:changeset   (-> base-changeset
+                                         (add-file-changes repo-dir (->> files-for-pr vals (apply clojure.set/union)))
+                                         (changeset/commit! commit-message)
+                                         (assoc :branch branch)
+                                         changeset/update-branch!)
+                        :description description}]
+        (local-commit! files-for-pr repo-dir)
+        changeset'))))
 
 (def ^:private migrations
   [{:title       "Sample migration"
@@ -125,22 +123,22 @@
     [changeset (conj details description)]
     [current-changeset details]))
 
-(defn run-migrations! [github-client organization service default-branch base-dir migrations]
-  (let [target-branch  (str "auto-refactor-" (today))
-        base-changeset (-> github-client
-                           (changeset/from-branch! organization service default-branch)
-                           (changeset/create-branch! target-branch))
+(defn run-migrations! [github-client organization service default-branch target-branch base-dir migrations]
+  (let [base-changeset      (-> github-client
+                                (changeset/from-branch! organization service default-branch)
+                                (changeset/create-branch! target-branch))
         [changeset details] (reduce (partial run-migration! base-dir)
                                     [base-changeset []]
                                     migrations)]
     (when (seq details)
-      (create-migration-pr! changeset details))))
+      (create-migration-pr! changeset details target-branch))))
 
 (defn -main [& [service default-branch]]
-  (let [org "nubank"
+  (let [org           "nubank"
         github-client (github-client/new-client {:token-fn (token/default-chain
                                                              "nu-secrets-br"
-                                                             "go/agent/release-lib/bumpito_secrets.json")})]
-    (run-migrations! github-client org service default-branch migrations)
+                                                             "go/agent/release-lib/bumpito_secrets.json")})
+        target-branch (str "auto-refactor-" (today))]
+    (run-migrations! github-client org service default-branch target-branch migrations)
     (shutdown-agents)
     (System/exit 0)))
