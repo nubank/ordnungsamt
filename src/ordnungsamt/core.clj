@@ -31,13 +31,16 @@
      :pr-description (render/render-pr context)}))
 
 (defn create-migration-pr!
-  [{:keys [repo branch org] :as _changeset} migration-details branch-name]
+  [client
+   {:keys [repo branch org] :as _changeset}
+   migration-details
+   branch-name]
   (let [{:keys [pr-title pr-description]} (render-pr-description! migration-details)
         {:keys [number]} (pull/create-pull! client org {:repo   repo
                                                         :title  pr-title
                                                         :branch branch-name
                                                         :base   branch
-                                                        :body pr-description})]
+                                                        :body   pr-description})]
     (issue/add-label! client org repo number "auto-migration")))
 
 (defn out->list [{:keys [out]}]
@@ -97,7 +100,7 @@
 (defn- apply+commit-migration!
   [base-dir
    {:keys [repo branch] :as base-changeset}
-   {:keys [title description] :as migration}]
+   {:keys [title] :as migration}]
   (let [repo-dir       (str base-dir repo)
         commit-message (str "the ordnungsamt applying " title)
         success?       (apply-migration! migration repo-dir)
@@ -108,7 +111,7 @@
                                          (changeset/commit! commit-message)
                                          (assoc :branch branch)
                                          changeset/update-branch!)
-                        :description description}]
+                        :description (select-keys migration [:title :created-at :description])}]
         (local-commit! files-for-pr repo-dir)
         changeset'))))
 
@@ -131,7 +134,7 @@
                                     [base-changeset []]
                                     migrations)]
     (when (seq details)
-      (create-migration-pr! changeset details target-branch))))
+      (create-migration-pr! github-client changeset details target-branch))))
 
 (defn -main [& [service default-branch]]
   (let [org           "nubank"
