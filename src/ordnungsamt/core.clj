@@ -1,8 +1,8 @@
 (ns ordnungsamt.core
-  (:require [clojure.string :as string]
-            [clojure.java.io :as io]
-            clojure.set
+  (:require [clojure.java.io :as io]
             [clojure.java.shell :refer [sh]]
+            clojure.set
+            [clojure.string :as string]
             [common-github.changeset :as changeset]
             [common-github.httpkit-client :as github-client]
             [common-github.issue :as issue]
@@ -83,8 +83,8 @@
               (if (.exists file)
                 (changeset/put-content changeset filepath (slurp file))
                 (changeset/delete changeset filepath))))
-    changeset
-    files))
+          changeset
+          files))
 
 (defn- apply-migration! [{:keys [command name date] :as _migration} dir]
   (let [{:keys [exit] :as output} (apply sh (concat command [:dir dir]))

@@ -24,4 +24,4 @@
 
 (defn render-pr [context]
   (clojure.string/trim
-    (selmer.parser/render pr-template {:migrations (map render-migration (:migrations context))})))
+   (selmer.parser/render pr-template {:migrations (map render-migration (:migrations context))})))

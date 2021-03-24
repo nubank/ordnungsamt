@@ -1,13 +1,13 @@
 (ns integration.aux.init
-  (:require [clojure.java.shell :refer [sh]]
-            [clojure.java.io :as io]
-            [common-github.httpkit-client :as client]
-            [org.httpkit.fake :as fake]
+  (:require [clojure.java.io :as io]
+            [clojure.java.shell :refer [sh]]
             [common-github-mock.httpkit-fake :as httpkit-fake]
-            [common-github.changeset :as changeset]
-            [common-github.repository :as repository]
             [common-github-mock.repos :as repos]
+            [common-github.changeset :as changeset]
+            [common-github.httpkit-client :as client]
+            [common-github.repository :as repository]
             [ordnungsamt.core :as core]
+            [org.httpkit.fake :as fake]
             [state-flow.api :as flow]))
 
 (defn run-commands! [commands]
@@ -24,7 +24,6 @@
   (fn [state] (run-commands! [["rm" "-rf" (str base-dir repository)]])))
 
 (defn seed-mock-git-repo! [mock-client org repo files repo-dir]
-    (println files)
   (let [file-changes (reduce (fn [changeset filepath]
                                (let [contents (->> filepath (str repo-dir "/") io/file slurp)]
                                  (changeset/put-content changeset filepath contents)))
@@ -33,7 +32,6 @@
     (-> file-changes
         (changeset/commit! "initial commit")
         (changeset/create-branch! "master"))))
-
 
 (defn seed-fake-service-repo! [base-dir repository]
   (fn []
