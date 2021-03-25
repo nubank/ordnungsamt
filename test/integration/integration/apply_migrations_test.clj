@@ -52,9 +52,10 @@
                                      migrations))}
            (json/parse-string (:body request) keyword)))))
 
-(defn add-label-request? [{:keys [path]}]
-  (= path
-     (str "/repos/" org "/" repository "/issues")))
+(defn add-label-request? [number]
+  (fn [{:keys [path]}]
+    (= path
+       (str "/repos/" org "/" repository "/issues/" number))))
 
 (def pr-body string?)
 
@@ -62,8 +63,8 @@
   {:init       (aux.init/setup-service-directory! base-dir repository)
    :fail-fast? true
    :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
-  (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [migration-a migration-c]) "{}"
-                                 add-label-request? "{}"]
+  (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [migration-a migration-c]) "{\"number\": 2}"
+                                 (add-label-request? 2) "{}"]
                      :repos     {:orgs [{:name org
                                          :repos [{:name           repository
                                                   :default_branch "master"}]}]}}
