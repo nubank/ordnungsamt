@@ -115,12 +115,6 @@
         (local-commit! files-for-pr repo-dir)
         changeset'))))
 
-(def ^:private migrations
-  [{:title       "Sample migration"
-    :description ""
-    :created-at  "2021-03-16"
-    :command     ""}])
-
 (defn- run-migration! [base-dir [current-changeset details] migration]
   (if-let [{:keys [changeset description]} (apply+commit-migration! base-dir current-changeset migration)]
     [changeset (conj details description)]
@@ -136,12 +130,13 @@
     (when (seq details)
       (create-migration-pr! github-client changeset details target-branch))))
 
-(defn -main [& [service default-branch]]
+(defn -main [& [service default-branch migrations-directory]]
   (let [org           "nubank"
         github-client (github-client/new-client {:token-fn (token/default-chain
                                                              "nu-secrets-br"
                                                              "go/agent/release-lib/bumpito_secrets.json")})
-        target-branch (str "auto-refactor-" (today))]
+        target-branch (str "auto-refactor-" (today))
+        migrations    (-> migrations-directory (str "/migrations.edn") slurp read-string)]
     (run-migrations! github-client org service default-branch target-branch "../" migrations)
     (shutdown-agents)
     (System/exit 0)))
