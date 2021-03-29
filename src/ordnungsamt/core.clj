@@ -121,14 +121,29 @@
     [current-changeset details]))
 
 (defn run-migrations! [github-client organization service default-branch target-branch base-dir migrations]
-  (let [base-changeset      (-> github-client
+  (let [registered-migrations (->> (str base-dir service "/.migrations.edn")
+                                   slurp
+                                   read-string
+                                   (map :id)
+                                   set)
+        to-run-migrations   (remove (fn [{:keys [id]}] (contains? registered-migrations id))
+                                    migrations)
+        base-changeset      (-> github-client
                                 (changeset/from-branch! organization service default-branch)
                                 (changeset/create-branch! target-branch))
         [changeset details] (reduce (partial run-migration! base-dir)
                                     [base-changeset []]
-                                    migrations)]
+                                    to-run-migrations)]
     (when (seq details)
       (create-migration-pr! github-client changeset details target-branch))))
+
+(def add-migration-file
+  {:title       "add .migration file"
+   :description "..."
+   :id          0
+   :created-at  "2021-03-29"
+   :command     ["echo \"[{:id 0 :_title \"create .migration.edn file\"}]\" .migrations.edn"]})
+
 
 (defn -main [& [service default-branch migrations-directory]]
   (let [org           "nubank"
@@ -137,6 +152,6 @@
                                                              "go/agent/release-lib/bumpito_secrets.json")})
         target-branch (str "auto-refactor-" (today))
         migrations    (-> migrations-directory (str "/migrations.edn") slurp read-string)]
-    (run-migrations! github-client org service default-branch target-branch "../" migrations)
+    (run-migrations! github-client org service default-branch target-branch "../" (concat [add-migration-file] migrations))
     (shutdown-agents)
     (System/exit 0)))
