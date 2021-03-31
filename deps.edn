@@ -4,9 +4,9 @@
  :paths ["src"]
  :deps {org.clojure/clojure {:mvn/version "1.10.3"}
         selmer              {:mvn/version "1.12.33"}
-        common-github       {:mvn/version "3.8.0-202103251532PR29"}
+        common-github       {:mvn/version "3.8.0-202103261229PR29"}
         common-core         {:mvn/version "15.19.0-202103161828PR826"}
-        common-github-mock  {:mvn/version "1.0.0-202103242141PR2"}
+        common-github-mock  {:mvn/version "1.0.0-202103261216PR2"}
         http-kit            {:mvn/version "2.4.0-alpha3"}
         cheshire            {:mvn/version "5.10.0"}}
  :aliases {:test {:extra-paths ["test/unit" "test/integration" "test-resources"]
