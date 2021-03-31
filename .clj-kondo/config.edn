@@ -1,0 +1,3 @@
+{:skip-comments true
+ :linters       {:refer-all         {:level :off}
+                 :unresolved-symbol {:level :off}}}
