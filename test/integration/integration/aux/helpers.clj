@@ -18,13 +18,13 @@
   [github-client-fn]
   (with-resource get-github-client github-client-fn))
 
-(defn file-exists? [org repository branch file]
-  (flow (str "file '" file "' is present")
+(defn files-present? [org repository branch files]
+  (flow/for [file files]
     (match? (comp not nil?)
       (with-github-client #(repository/get-content! % org repository file {:branch branch})))))
 
-(defn file-absent? [org repository branch file]
-  (flow (str "file '" file "' is absent")
+(defn files-absent? [org repository branch files]
+  (flow/for [file files]
     (match? nil?
       (with-github-client #(repository/get-content! % org repository file {:branch branch})))))
 

@@ -1,4 +1,4 @@
 [{:id     0
-  :_title "inject .migrations.edn file"}
+  :_title "some first migration"}
  {:id     4
   :_title "migration d"}]
