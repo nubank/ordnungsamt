@@ -1,7 +1,7 @@
 (ns integration.aux.helpers
   (:require [cats.core :as m]
             [common-github.repository :as repository]
-            [state-flow.api :refer [flow match?] :as flow]))
+            [state-flow.api :refer [match?] :as flow]))
 
 (defn with-resource
   "Gets a value from the state using resource-fetcher and passes it as an

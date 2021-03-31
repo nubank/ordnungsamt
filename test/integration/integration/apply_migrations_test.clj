@@ -1,14 +1,14 @@
 (ns integration.apply-migrations-test
   (:require [cheshire.core :as json]
-            [common-github.repository :as repository]
             clojure.string
             [clojure.test :refer :all]
+            [common-github.repository :as repository]
             [common-github.state-flow-helper :refer [mock-github-flow]]
             [integration.aux.helpers :refer [files-absent? files-present? with-github-client]]
             [integration.aux.init :as aux.init]
             [matcher-combinators.standalone :as standalone]
             [ordnungsamt.core :as core]
-            [state-flow.api :refer [flow defflow match?] :as flow]))
+            [state-flow.api :refer [defflow flow match?] :as flow]))
 
 (def base-dir "target/")
 (def repository "example-repo")
@@ -77,9 +77,9 @@
   (flow "was the .migrations.edn file updated with the expected migrations?"
     [migrations-contents (with-github-client
                            #(repository/get-content!
-                              % org repository core/applied-migrations-file {:branch migration-branch}))]
+                             % org repository core/applied-migrations-file {:branch migration-branch}))]
     (match? expected-migration-id-set
-            (set (map :id (read-string migrations-contents))))))
+      (set (map :id (read-string migrations-contents))))))
 
 (defflow applying+skipping-migrations
   {:init       (aux.init/setup-service-directory! base-dir repository)
@@ -116,13 +116,13 @@
                                          :repos [{:name           repository
                                                   :default_branch "master"}]}]}}
 
-      (with-github-client
-        #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repo-dir))
+                    (with-github-client
+                      #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repo-dir))
 
-      (flow "running migrations creates the .migrations.edn file when it doesn't already exist"
-        (files-absent? org repository "master" [core/applied-migrations-file])
-        (with-github-client
-          #(core/run-migrations! % org repository "master" migration-branch base-dir [migration-d]))
-        (files-present? org repository migration-branch [core/applied-migrations-file]))
+                    (flow "running migrations creates the .migrations.edn file when it doesn't already exist"
+                      (files-absent? org repository "master" [core/applied-migrations-file])
+                      (with-github-client
+                        #(core/run-migrations! % org repository "master" migration-branch base-dir [migration-d]))
+                      (files-present? org repository migration-branch [core/applied-migrations-file]))
 
-      (migrations-present-in-log? #{4})))
+                    (migrations-present-in-log? #{4})))
