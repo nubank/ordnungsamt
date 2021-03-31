@@ -11,6 +11,8 @@
             [ordnungsamt.render :as render])
   (:gen-class))
 
+(def applied-migrations-file ".migrations.edn")
+
 (defn- today []
   (.format (java.text.SimpleDateFormat. "yyyy-MM-dd")
            (new java.util.Date)))
@@ -24,13 +26,13 @@
     (when-not (zero? exit)
       (print-lines err))))
 
-(defn render-pr-description! [migration-details]
+(defn- render-pr-description! [migration-details]
   (let [context {:date       (today)
                  :migrations migration-details}]
     {:pr-title       (render/render-title context)
      :pr-description (render/render-pr context)}))
 
-(defn create-migration-pr!
+(defn- create-migration-pr!
   [client
    {:keys [repo branch org] :as _changeset}
    migration-details
@@ -46,7 +48,24 @@
 (defn out->list [{:keys [out]}]
   (remove empty? (string/split out #"\n")))
 
-(defn files-to-commit [dir]
+(defn- registered-migrations [dir]
+  (let [applied-migrations-filepath (str dir "/" applied-migrations-file)]
+    (if (.exists (io/file applied-migrations-filepath))
+      (read-string (slurp applied-migrations-filepath))
+      [])))
+
+(defn- register-migration! [dir {:keys [id title] :as _migration}]
+  (let [applied-migrations-filepath (str dir "/" applied-migrations-file)]
+    (->> {:id id :_title title}
+         (conj (registered-migrations dir))
+         (spit applied-migrations-filepath))))
+
+(defn- with-applied-migrations-file [changed-files repo-dir]
+  (if (.exists (io/file (str repo-dir "/" applied-migrations-file)))
+    (conj changed-files applied-migrations-file)
+    changed-files))
+
+(defn- files-to-commit [dir]
   (let [modified  (->> (sh "git" "ls-files" "--modified" "--exclude-standard" :dir dir)
                        out->list
                        (into #{}))
@@ -56,11 +75,14 @@
         added     (->> (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir)
                        out->list
                        (into #{}))]
-    {:modified (clojure.set/difference modified deleted)
+    {:modified (-> modified
+                   (with-applied-migrations-file dir)
+                   (clojure.set/difference deleted)
+                   (clojure.set/difference added))
      :deleted  deleted
      :added    added}))
 
-(defn sh! [& args]
+(defn- sh! [& args]
   (let [{:keys [exit err] :as result} (apply sh args)]
     (when (not (zero? exit))
       (throw (ex-info (str "FAILED running command:\n" args "\nerror message:\n" err)
@@ -103,15 +125,19 @@
    {:keys [title] :as migration}]
   (let [repo-dir       (str base-dir repo)
         commit-message (str "the ordnungsamt applying " title)
-        success?       (apply-migration! migration repo-dir)
-        files-for-pr   (files-to-commit repo-dir)]
+        success?       (apply-migration! migration repo-dir)]
     (when (and success? (has-changes? repo-dir))
-      (let [changeset' {:changeset   (-> base-changeset
-                                         (add-file-changes repo-dir (->> files-for-pr vals (apply clojure.set/union)))
-                                         (changeset/commit! commit-message)
-                                         (assoc :branch branch)
-                                         changeset/update-branch!)
-                        :description (select-keys migration [:title :created-at :description])}]
+      (register-migration! repo-dir migration)
+      (let [files-for-pr  (files-to-commit repo-dir)
+            changed-files (->> files-for-pr
+                               vals
+                               (apply clojure.set/union))
+            changeset'    {:changeset   (-> base-changeset
+                                            (add-file-changes repo-dir changed-files)
+                                            (changeset/commit! commit-message)
+                                            (assoc :branch branch)
+                                            changeset/update-branch!)
+                           :description (select-keys migration [:title :created-at :description])}]
         (local-commit! files-for-pr repo-dir)
         changeset'))))
 
@@ -121,9 +147,7 @@
     [current-changeset details]))
 
 (defn run-migrations! [github-client organization service default-branch target-branch base-dir migrations]
-  (let [registered-migrations (->> (str base-dir service "/.migrations.edn")
-                                   slurp
-                                   read-string
+  (let [registered-migrations (->> (registered-migrations (str base-dir service))
                                    (map :id)
                                    set)
         to-run-migrations   (remove (fn [{:keys [id]}] (contains? registered-migrations id))
@@ -137,14 +161,6 @@
     (when (seq details)
       (create-migration-pr! github-client changeset details target-branch))))
 
-(def add-migration-file
-  {:title       "add .migration file"
-   :description "..."
-   :id          0
-   :created-at  "2021-03-29"
-   :command     ["echo \"[{:id 0 :_title \"create .migration.edn file\"}]\" .migrations.edn"]})
-
-
 (defn -main [& [service default-branch migrations-directory]]
   (let [org           "nubank"
         github-client (github-client/new-client {:token-fn (token/default-chain
@@ -152,6 +168,6 @@
                                                              "go/agent/release-lib/bumpito_secrets.json")})
         target-branch (str "auto-refactor-" (today))
         migrations    (-> migrations-directory (str "/migrations.edn") slurp read-string)]
-    (run-migrations! github-client org service default-branch target-branch "../" (concat [add-migration-file] migrations))
+    (run-migrations! github-client org service default-branch target-branch "../" migrations)
     (shutdown-agents)
     (System/exit 0)))
