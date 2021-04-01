@@ -10,4 +10,5 @@ ls
 
 pwd
 
-java -jar /ordnungsamt.jar "$service" "$default_branch" "$migrations_directory"
+# java -jar /ordnungsamt.jar "$service" "$default_branch" "$migrations_directory"
+java -jar /ordnungsamt.jar "$service" "$default_branch" service-migrations
