@@ -5,7 +5,7 @@
             [common-github.httpkit-client :as client]
             [ordnungsamt.core :as core]))
 
-(defn- run-commands!
+(defn run-commands!
   "executes shell commands and returns the results from the last command a list"
   [commands]
   (reduce (fn [_previous-result command]
