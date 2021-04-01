@@ -96,7 +96,7 @@
 (defn- local-commit! [{:keys [modified deleted added]} dir]
   (run! (fn [file] (sh! "git" "add" file :dir dir)) (concat modified added))
   (run! (fn [file] (sh! "git" "rm" file :dir dir)) deleted)
-  (sh! "git" "-c" "commit.gpgsign=false" "commit" "-m" "migration applied" :dir dir))
+  (sh! "git" "-c" "commit.gpgsign=false" "commit" "--author" "ordnungsamt" "-m" "migration applied" :dir dir))
 
 (defn- add-file-changes [changeset repo files]
   (reduce (fn [changeset filepath]
