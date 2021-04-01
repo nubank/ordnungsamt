@@ -6,4 +6,8 @@ service=$1
 default_branch=$2
 migrations_directory=$3
 
+ls
+
+pwd
+
 java -jar /ordnungsamt.jar "$service" "$default_branch" "$migrations_directory"
