@@ -165,6 +165,6 @@
         target-branch (str "auto-refactor-" (today))
         migrations    (-> migrations-directory (str "/migrations.edn") slurp read-string)]
     (close-open-prs! github-client org service)
-    (run-migrations! github-client org service default-branch target-branch "../" migrations)
+    (run-migrations! github-client org service default-branch target-branch "" migrations)
     (shutdown-agents)
     (System/exit 0)))
