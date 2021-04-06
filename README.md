@@ -15,11 +15,12 @@ The rough flow is:
 
  - your CI schedules `ordnungsamt` to be run on every repository.
  - for a run, the CI checks out `ordnungsamt`, the repository in question, and a repository of migrations.
+ - `ordnungsamt` closes any open GitHub pull requests that have the label `auto-refactor`
  - `ordnungsamt` iterates through the migrations:
    - checking the `.migrations.edn` file to see if the migration has already been applied to the local repository.
    - A not-yet-applied migrations is applied to the local repository checkout.
    - When a migration leads to code alterations, they are collected into a git commit that is posted to GitHub via their API.
- - Once all migrations are applied, a GitHub pull request is opened with migration details for the repository owners to review and merge
+ - Once all migrations are applied, a `auto-refactor` labeled GitHub pull request is opened with migration details for the repository owners to review and merge.
 
 ### skipping migrations
 
