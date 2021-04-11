@@ -22,11 +22,11 @@
   (flow/for [file files]
     (flow (str "file " file " is present")
       (match? (comp not nil?)
-        (with-github-client #(repository/get-content! % org repository file {:branch branch}))))))
+        (with-github-client #(repository/get-content! % org repository file {:ref branch}))))))
 
 (defn files-absent? [org repository branch files]
   (flow/for [file files]
     (flow (str "file " file " is absent")
       (match? nil?
-        (with-github-client #(repository/get-content! % org repository file {:branch branch}))))))
+        (with-github-client #(repository/get-content! % org repository file {:ref branch}))))))
 
