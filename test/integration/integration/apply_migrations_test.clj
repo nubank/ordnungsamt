@@ -77,7 +77,7 @@
   (flow "was the .migrations.edn file updated with the expected migrations?"
     [migrations-contents (with-github-client
                            #(repository/get-content!
-                             % org repository core/applied-migrations-file {:branch migration-branch}))]
+                             % org repository core/applied-migrations-file {:ref migration-branch}))]
     (match? expected-migration-id-set
       (set (map :id (read-string migrations-contents))))))
 
@@ -87,9 +87,9 @@
    :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
   (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [migration-a migration-c]) "{\"number\": 2}"
                                  (add-label-request? 2) "{}"]
-                     :repos     {:orgs [{:name org
-                                         :repos [{:name           repository
-                                                  :default_branch "master"}]}]}}
+                     :initial-state {:orgs [{:name org
+                                             :repos [{:name           repository
+                                                      :default_branch "master"}]}]}}
 
                     (with-github-client
                       #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj" core/applied-migrations-file] repo-dir))
@@ -112,9 +112,9 @@
     (flow/invoke #(aux.init/run-commands! [["rm" core/applied-migrations-file :dir repo-dir]])))
   (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [migration-d]) "{\"number\": 2}"
                                  (add-label-request? 2) "{}"]
-                     :repos     {:orgs [{:name org
-                                         :repos [{:name           repository
-                                                  :default_branch "master"}]}]}}
+                     :initial-state {:orgs [{:name org
+                                             :repos [{:name           repository
+                                                      :default_branch "master"}]}]}}
 
                     (with-github-client
                       #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repo-dir))
