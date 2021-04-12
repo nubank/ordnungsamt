@@ -149,7 +149,7 @@
                                    (map :id)
                                    set)
         to-run-migrations   (remove (fn [{:keys [id]}] (contains? registered-migrations id))
-                                    migrations)
+                                    (:migrations migrations))
         base-changeset      (-> github-client
                                 (changeset/from-branch! organization service default-branch)
                                 (changeset/create-branch! target-branch))
@@ -157,7 +157,10 @@
                                     [base-changeset []]
                                     to-run-migrations)]
     (when (seq details)
-      (create-migration-pr! github-client changeset details default-branch))))
+      (let [[changeset' details'] (reduce (partial run-migration! base-dir)
+                                          [changeset details]
+                                          (:post migrations))]
+        (create-migration-pr! github-client changeset' details' default-branch)))))
 
 (defn -main [& [service default-branch migrations-directory]]
   (let [org           "nubank"
