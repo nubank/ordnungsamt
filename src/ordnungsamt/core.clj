@@ -57,12 +57,13 @@
       [])))
 
 (defn- register-migration! [dir {:keys [id title] :as _migration}]
-  (let [applied-migrations-filepath (str dir "/" applied-migrations-file)]
-    (->> {:id id :_title title}
-         (conj (read-registered-migrations dir))
-         pprint
-         with-out-str
-         (spit applied-migrations-filepath))))
+  (when id
+    (let [applied-migrations-filepath (str dir "/" applied-migrations-file)]
+      (->> {:id id :_title title}
+           (conj (read-registered-migrations dir))
+           pprint
+           with-out-str
+           (spit applied-migrations-filepath)))))
 
 (defn- files-to-commit [dir]
   (let [modified  (->> (sh "git" "ls-files" "--modified" "--exclude-standard" :dir dir)
@@ -88,7 +89,10 @@
                       result)))))
 
 (defn- has-changes? [dir]
-  (not (zero? (:exit (sh "git" "diff-index" "--quiet" "HEAD" :dir dir)))))
+  (->> dir
+       files-to-commit
+       (apply concat)
+       seq))
 
 (defn- drop-changes! [dir]
   (let [added (out->list (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir))]
@@ -160,10 +164,10 @@
                                     [base-changeset []]
                                     to-run-migrations)]
     (when (seq details)
-      (let [[changeset' details'] (reduce (partial run-migration! base-dir)
-                                          [changeset details]
-                                          (:post migrations))]
-        (create-migration-pr! github-client changeset' details' default-branch)))))
+      (let [[changeset' _] (reduce (partial run-migration! base-dir)
+                                   [changeset details]
+                                   (:post migrations))]
+        (create-migration-pr! github-client changeset' details default-branch)))))
 
 (defn -main [& [service default-branch migrations-directory]]
   (let [org           "nubank"
