@@ -43,10 +43,15 @@
    :created-at  "2021-03-29"
    :command     ["../../test-resources/migration-d.sh"]})
 
-(def migrations [migration-a
-                 failing-migration
-                 migration-c
-                 migration-d])
+(def cleanup
+  {:title       "cleanup"
+   :command     ["../../test-resources/cleanup.sh"]})
+
+(def migrations {:migrations [migration-a
+                              failing-migration
+                              migration-c
+                              migration-d]
+                 :post       [cleanup]})
 
 (def migration-branch "auto-refactor-2021-03-24")
 
@@ -71,8 +76,6 @@
     (= path
        (str "/repos/" org "/" repository "/issues/" number))))
 
-(def pr-body string?)
-
 (defn- migrations-present-in-log? [expected-migration-id-set]
   (flow "was the .migrations.edn file updated with the expected migrations?"
     [migrations-contents (with-github-client
@@ -85,6 +88,7 @@
   {:init       (aux.init/setup-service-directory! base-dir repository)
    :fail-fast? true
    :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
+  [:let [initial-files ["4'33" "clouds.md" "fanon.clj" core/applied-migrations-file]]]
   (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [migration-a migration-c]) "{\"number\": 2}"
                                  (add-label-request? 2) "{}"]
                      :initial-state {:orgs [{:name org
@@ -92,16 +96,18 @@
                                                       :default_branch "master"}]}]}}
 
                     (with-github-client
-                      #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj" core/applied-migrations-file] repo-dir))
+                      #(aux.init/seed-mock-git-repo! % org repository initial-files repo-dir))
 
-                    (files-present? org repository "master" [core/applied-migrations-file "clouds.md" "4'33" "fanon.clj"])
+                    (files-present? org repository "master" initial-files)
 
                     (with-github-client
                       #(core/run-migrations! % org repository "master" migration-branch base-dir migrations))
 
                     (migrations-present-in-log? #{0 1 3 4})
 
-                    (files-present? org repository migration-branch ["clouds.md" "frantz_fanon.clj"])
+                    (files-present? org repository migration-branch ["clouds.md"
+                                                                     "frantz_fanon.clj"
+                                                                     "cleanup-log"])
                     (files-absent? org repository migration-branch ["fanon.clj" "angela" "4'33"])))
 
 (defflow creating-registry+applying-migrations
@@ -122,7 +128,26 @@
                     (flow "running migrations creates the .migrations.edn file when it doesn't already exist"
                       (files-absent? org repository "master" [core/applied-migrations-file])
                       (with-github-client
-                        #(core/run-migrations! % org repository "master" migration-branch base-dir [migration-d]))
+                        #(core/run-migrations! % org repository "master" migration-branch base-dir {:migrations [migration-d]}))
                       (files-present? org repository migration-branch [core/applied-migrations-file]))
 
                     (migrations-present-in-log? #{4})))
+
+
+(defflow failing-migration-doesnt-run-post-steps
+  {:init       (aux.init/setup-service-directory! base-dir repository)
+   :fail-fast? true
+   :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
+  (mock-github-flow {:initial-state {:orgs [{:name org
+                                             :repos [{:name           repository
+                                                      :default_branch "master"}]}]}}
+
+                    (with-github-client
+                      #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repo-dir))
+
+                    (flow "running a failing migration means the post step is skipped"
+                      (with-github-client
+                        #(core/run-migrations! % org repository "master" migration-branch base-dir
+                                               {:migrations [failing-migration]
+                                                :post       [cleanup]}))
+                      (files-absent? org repository migration-branch ["cleanup-log"]))))
