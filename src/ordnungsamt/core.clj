@@ -1,6 +1,7 @@
 (ns ordnungsamt.core
   (:require [clojure.java.io :as io]
             [clojure.java.shell :refer [sh]]
+            [clojure.pprint :refer [pprint]]
             clojure.set
             [clojure.string :as string]
             [common-github.changeset :as changeset]
@@ -59,6 +60,8 @@
   (let [applied-migrations-filepath (str dir "/" applied-migrations-file)]
     (->> {:id id :_title title}
          (conj (read-registered-migrations dir))
+         pprint
+         with-out-str
          (spit applied-migrations-filepath))))
 
 (defn- files-to-commit [dir]
