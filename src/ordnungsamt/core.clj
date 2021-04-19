@@ -58,12 +58,14 @@
 
 (defn- register-migration! [dir {:keys [id title] :as _migration}]
   (when id
-    (let [applied-migrations-filepath (str dir "/" applied-migrations-file)]
-      (->> {:id id :_title title}
-           (conj (read-registered-migrations dir))
-           pprint
-           with-out-str
-           (spit applied-migrations-filepath)))))
+    (let [applied-migrations-filepath (str dir "/" applied-migrations-file)
+          migration-registry          (conj (read-registered-migrations dir) {:id id :_title title})
+          migration-registry-str      (with-out-str (pprint migration-registry))
+          header-comment              (str ";; auto-generated file\n"
+                                           ";; By editing this file you can make the system skip certain migration.\n"
+                                           ";; See README for more details\n")]
+           (spit (str header-comment migration-registry-str)
+                 applied-migrations-filepath))))
 
 (defn- files-to-commit [dir]
   (let [modified  (->> (sh "git" "ls-files" "--modified" "--exclude-standard" :dir dir)
