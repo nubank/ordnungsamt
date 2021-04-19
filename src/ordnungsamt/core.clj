@@ -64,8 +64,8 @@
           header-comment              (str ";; auto-generated file\n"
                                            ";; By editing this file you can make the system skip certain migration.\n"
                                            ";; See README for more details\n")]
-           (spit (str header-comment migration-registry-str)
-                 applied-migrations-filepath))))
+           (spit applied-migrations-filepath
+                 (str header-comment migration-registry-str)))))
 
 (defn- files-to-commit [dir]
   (let [modified  (->> (sh "git" "ls-files" "--modified" "--exclude-standard" :dir dir)
