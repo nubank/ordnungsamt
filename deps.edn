@@ -7,6 +7,7 @@
         dev.nubank/clj-github-mock  {:mvn/version "0.1.0"}
         http-kit/http-kit           {:mvn/version "2.4.0-alpha3"}
         cheshire/cheshire           {:mvn/version "5.10.0"}}
+
  :aliases {:test {:extra-paths ["test/unit" "test/integration" "test-resources"]
                   :extra-deps {org.clojure/test.check      {:mvn/version "0.10.0"}
                                nubank/matcher-combinators  {:mvn/version "3.1.4"}

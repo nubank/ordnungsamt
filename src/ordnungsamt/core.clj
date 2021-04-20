@@ -21,9 +21,10 @@
 
 (defn- print-process-output [{:keys [exit out err]}]
   (letfn [(print-lines [output]
-            (->> (string/split output (re-pattern (System/lineSeparator)))
-                 (map println)
-                 doall))]
+            (when output
+              (->> (string/split output (re-pattern (System/lineSeparator)))
+                   (map println)
+                   doall)))]
     (print-lines out)
     (when-not (zero? exit)
       (print-lines err))))
@@ -119,7 +120,11 @@
           files))
 
 (defn- apply-migration! [{:keys [command] :as _migration} dir]
-  (let [{:keys [exit] :as output} (apply sh (concat command [:dir dir]))
+  (let [{:keys [exit] :as output} (try
+                                    (apply sh (concat command [:dir dir]))
+                                    (catch java.io.IOException e
+                                      {:exit 1
+                                       :err (str e)}))
         success?                  (zero? exit)]
     (print-process-output output)
     (when (not success?)
