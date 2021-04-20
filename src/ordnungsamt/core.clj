@@ -4,11 +4,11 @@
             [clojure.pprint :refer [pprint]]
             clojure.set
             [clojure.string :as string]
-            [common-github.changeset :as changeset]
-            [common-github.httpkit-client :as github-client]
-            [common-github.issue :as issue]
-            [common-github.pull :as pull]
-            [common-github.token :as token]
+            [clj-github.changeset :as changeset]
+            [clj-github.httpkit-client :as github-client]
+            [clj-github.issue :as issue]
+            [clj-github.pull :as pull]
+            [clj-github.token :as token]
             [ordnungsamt.close-open-prs :refer [close-open-prs!]]
             [ordnungsamt.render :as render])
   (:gen-class))
@@ -171,11 +171,20 @@
                                    (:post migrations))]
         (create-migration-pr! github-client changeset' details default-branch)))))
 
-(defn -main [& [service default-branch migrations-directory]]
+(defn resolve-token-fn [token-fn]
+  (when token-fn
+    (let [token-fn' (symbol token-fn)]
+      (require (symbol (namespace token-fn')))
+      (resolve token-fn'))))
+
+(def default-token-fn
+  (token/chain [token/hub-config token/env-var]))
+
+(defn -main [& [service default-branch migrations-directory token-fn]]
   (let [org           "nubank"
-        github-client (github-client/new-client {:token-fn (token/default-chain
-                                                             "nu-secrets-br"
-                                                             "go/agent/release-lib/bumpito_secrets.json")})
+        token-fn      (or (resolve-token-fn token-fn)
+                          default-token-fn)
+        github-client (github-client/new-client {:token-fn token-fn})
         target-branch (str "auto-refactor-" (today))
         migrations    (-> migrations-directory (str "/migrations.edn") slurp read-string)]
     (close-open-prs! github-client org service)

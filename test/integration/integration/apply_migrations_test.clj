@@ -2,8 +2,8 @@
   (:require [cheshire.core :as json]
             clojure.string
             [clojure.test :refer :all]
-            [common-github.repository :as repository]
-            [common-github.state-flow-helper :refer [mock-github-flow]]
+            [clj-github.repository :as repository]
+            [clj-github.state-flow-helper :refer [mock-github-flow]]
             [integration.aux.helpers :refer [files-absent? files-present? with-github-client]]
             [integration.aux.init :as aux.init]
             [matcher-combinators.standalone :as standalone]

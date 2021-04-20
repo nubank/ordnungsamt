@@ -1,8 +1,8 @@
 (ns integration.aux.init
   (:require [clojure.java.io :as io]
             [clojure.java.shell :refer [sh]]
-            [common-github.changeset :as changeset]
-            [common-github.httpkit-client :as client]
+            [clj-github.changeset :as changeset]
+            [clj-github.httpkit-client :as client]
             [ordnungsamt.core :as core]))
 
 (defn run-commands!
