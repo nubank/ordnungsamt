@@ -32,4 +32,4 @@ jobs:
           cli: 1.10.1.693 # Clojure CLI based on tools.deps
 
       - name: Run clj tests
-        run: clojure -A:test:test-runner
+        run: clojure -M:test:test-runner
