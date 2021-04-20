@@ -21,9 +21,9 @@
 
 (defn- print-process-output [{:keys [exit out err]}]
   (letfn [(print-lines [output]
-            (->> (string/split output (re-pattern (System/lineSeparator)))
-                 (map println)
-                 doall))]
+            (some->> (string/split output (re-pattern (System/lineSeparator)))
+                     (map println)
+                     doall))]
     (print-lines out)
     (when-not (zero? exit)
       (print-lines err))))
