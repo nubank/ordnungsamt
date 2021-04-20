@@ -3,6 +3,7 @@
             [clojure.java.shell :refer [sh]]
             [clojure.pprint :refer [pprint]]
             clojure.set
+            clojure.stacktrace
             [clojure.string :as string]
             [common-github.changeset :as changeset]
             [common-github.httpkit-client :as github-client]
@@ -117,7 +118,11 @@
           files))
 
 (defn- apply-migration! [{:keys [command] :as _migration} dir]
-  (let [{:keys [exit] :as output} (apply sh (concat command [:dir dir]))
+  (let [{:keys [exit] :as output} (try
+                                    (apply sh (concat command [:dir dir]))
+                                    (catch java.io.IOException e
+                                      {:exit 1
+                                       :err (with-out-str (clojure.stacktrace/print-stack-trace e))}))
         success?                  (zero? exit)]
     (print-process-output output)
     (when (not success?)
