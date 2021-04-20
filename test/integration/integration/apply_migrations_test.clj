@@ -131,7 +131,7 @@
                         #(core/run-migrations! % org repository "master" migration-branch base-dir {:migrations [migration-d]}))
                       (files-present? org repository migration-branch [core/applied-migrations-file]))
 
-                    (migrations-present-in-log? #{4})))
+                    (migrations-present-in-log? #{4 90})))
 
 
 (defflow failing-migration-doesnt-run-post-steps
