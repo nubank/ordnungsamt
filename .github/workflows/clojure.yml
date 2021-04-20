@@ -21,7 +21,7 @@ jobs:
       run: java -version
 
     - name: Run clj tests
-      run: clj -A:test:test-runner
+      run: clojure -A:test:test-runner
 
   test-using-java-11:
     name: 'Test using Java 11'
@@ -37,4 +37,4 @@ jobs:
       run: java -version
 
     - name: Run clj tests
-      run: clj -A:test:test-runner
+      run: clojure -A:test:test-runner

@@ -4,7 +4,7 @@
  :paths ["src"]
  :deps {org.clojure/clojure        {:mvn/version "1.10.3"}
         selmer                     {:mvn/version "1.12.33"}
-        common-github              {:mvn/version "3.9.0"}
+        common-github              {:mvn/version "3.10.0"}
         dev.nubank/clj-github-mock {:mvn/version "0.1.0"}
         http-kit                   {:mvn/version "2.4.0-alpha3"}
         cheshire                   {:mvn/version "5.10.0"}}
