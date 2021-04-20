@@ -26,6 +26,9 @@ jobs:
       - name: Print java version
         run: java -version
 
+      - name: setup git
+        run: git config --global user.email "you@example.com" && git config --global user.name "Your Name"
+
       - name: Install clojure tools
         uses: DeLaGuardo/setup-clojure@3.2
         with:
