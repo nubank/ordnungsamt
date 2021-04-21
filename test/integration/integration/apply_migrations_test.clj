@@ -108,7 +108,7 @@
                     (files-present? org repository migration-branch ["clouds.md"
                                                                      "frantz_fanon.clj"
                                                                      "cleanup-log"])
-                    #_(files-absent? org repository migration-branch ["fanon.clj" "angela" "4'33"])))
+                    (files-absent? org repository migration-branch ["fanon.clj" "angela" "4'33"])))
 
 (defflow creating-registry+applying-migrations
   {:init       (aux.init/setup-service-directory! base-dir repository)
