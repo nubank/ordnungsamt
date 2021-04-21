@@ -13,4 +13,13 @@
     (testing "filtered out if the service is not in the opt-in"
       (is (false? (filter {:opt-in #{"serviceB"}}))))))
 
+(deftest test-compose-filters
+  (is (true? ((core/compose-filters []) {})))
+
+  (is (true? ((core/compose-filters [(partial = "a")]) "a")))
+
+  (is (false? ((core/compose-filters [(partial = "a")]) "b")))
+
+  (is (false? ((core/compose-filters [(constantly false)
+                                      (fn [_] (throw (Exception. "this exception shouldn't happen")))]) {}))))
 
