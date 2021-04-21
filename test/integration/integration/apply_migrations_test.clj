@@ -84,78 +84,79 @@
     (match? expected-migration-id-set
       (set (map :id (read-string migrations-contents))))))
 
-(defflow applying+skipping-migrations
-  {:init       (aux.init/setup-service-directory! base-dir repository)
-   :fail-fast? true
-   :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
-  [:let [initial-files ["4'33" "clouds.md" "fanon.clj" core/applied-migrations-file]]]
-  (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [migration-a migration-c]) "{\"number\": 2}"
-                                 (add-label-request? 2) "{}"]
-                     :initial-state {:orgs [{:name org
-                                             :repos [{:name           repository
-                                                      :default_branch "master"}]}]}}
+#_(defflow applying+skipping-migrations
+    {:init       (aux.init/setup-service-directory! base-dir repository)
+     :fail-fast? true
+     :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
+    [:let [initial-files ["4'33" "clouds.md" "fanon.clj" core/applied-migrations-file]]]
+    (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [migration-a migration-c]) "{\"number\": 2}"
+                                   (add-label-request? 2) "{}"]
+                       :initial-state {:orgs [{:name org
+                                               :repos [{:name           repository
+                                                        :default_branch "master"}]}]}}
 
-                    (with-github-client
-                      #(aux.init/seed-mock-git-repo! % org repository initial-files repo-dir))
-
-                    (files-present? org repository "master" initial-files)
-
-                    (with-github-client
-                      #(core/run-migrations! % org repository "master" migration-branch base-dir migrations))
-
-                    (migrations-present-in-log? #{0 1 3 4})
-
-                    (files-present? org repository migration-branch ["clouds.md"
-                                                                     "frantz_fanon.clj"
-                                                                     "cleanup-log"])
-                    (files-absent? org repository migration-branch ["fanon.clj" "angela" "4'33"])))
-
-(defflow creating-registry+applying-migrations
-  {:init       (aux.init/setup-service-directory! base-dir repository)
-   :fail-fast? true
-   :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
-  (flow "before we start: remove file tracking applied migrations"
-    (flow/invoke #(aux.init/run-commands! [["rm" core/applied-migrations-file :dir repo-dir]])))
-  (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [migration-d]) "{\"number\": 2}"
-                                 (add-label-request? 2) "{}"]
-                     :initial-state {:orgs [{:name org
-                                             :repos [{:name           repository
-                                                      :default_branch "master"}]}]}}
-
-                    (with-github-client
-                      #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repo-dir))
-
-                    (flow "running migrations creates the .migrations.edn file when it doesn't already exist"
-                      (files-absent? org repository "master" [core/applied-migrations-file])
                       (with-github-client
-                        #(core/run-migrations! % org repository "master" migration-branch base-dir {:migrations [migration-d]}))
-                      (files-present? org repository migration-branch [core/applied-migrations-file]))
+                        #(aux.init/seed-mock-git-repo! % org repository initial-files repo-dir))
 
-                    (migrations-present-in-log? #{4})))
+                      (files-present? org repository "master" initial-files)
 
-
-(defflow failing-migration-doesnt-run-post-steps
-  {:init       (aux.init/setup-service-directory! base-dir repository)
-   :fail-fast? true
-   :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
-  (mock-github-flow {:initial-state {:orgs [{:name org
-                                             :repos [{:name           repository
-                                                      :default_branch "master"}]}]}}
-
-                    (with-github-client
-                      #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repo-dir))
-
-                    (flow "running a failing migration means the post step is skipped"
                       (with-github-client
-                        #(core/run-migrations! % org repository "master" migration-branch base-dir
-                                               {:migrations [failing-migration]
-                                                :post       [cleanup]}))
-                      (files-absent? org repository migration-branch ["cleanup-log"]))))
+                        #(core/run-migrations! % org repository "master" migration-branch base-dir migrations))
+
+                      (migrations-present-in-log? #{0 1 3 4})
+
+                      (files-present? org repository migration-branch ["clouds.md"
+                                                                       "frantz_fanon.clj"
+                                                                       "cleanup-log"])
+                      (files-absent? org repository migration-branch ["fanon.clj" "angela" "4'33"])))
+
+#_(defflow creating-registry+applying-migrations
+    {:init       (aux.init/setup-service-directory! base-dir repository)
+     :fail-fast? true
+     :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
+    (flow "before we start: remove file tracking applied migrations"
+      (flow/invoke #(aux.init/run-commands! [["rm" core/applied-migrations-file :dir repo-dir]])))
+    (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [migration-d]) "{\"number\": 2}"
+                                   (add-label-request? 2) "{}"]
+                       :initial-state {:orgs [{:name org
+                                               :repos [{:name           repository
+                                                        :default_branch "master"}]}]}}
+
+                      (with-github-client
+                        #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repo-dir))
+
+                      (flow "running migrations creates the .migrations.edn file when it doesn't already exist"
+                        (files-absent? org repository "master" [core/applied-migrations-file])
+                        (with-github-client
+                          #(core/run-migrations! % org repository "master" migration-branch base-dir {:migrations [migration-d]}))
+                        (files-present? org repository migration-branch [core/applied-migrations-file]))
+
+                      (migrations-present-in-log? #{4})))
+
+
+#_(defflow failing-migration-doesnt-run-post-steps
+    {:init       (aux.init/setup-service-directory! base-dir repository)
+     :fail-fast? true
+     :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
+    (mock-github-flow {:initial-state {:orgs [{:name org
+                                               :repos [{:name           repository
+                                                        :default_branch "master"}]}]}}
+
+                      (with-github-client
+                        #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repo-dir))
+
+                      (flow "running a failing migration means the post step is skipped"
+                        (with-github-client
+                          #(core/run-migrations! % org repository "master" migration-branch base-dir
+                                                 {:migrations [failing-migration]
+                                                  :post       [cleanup]}))
+                        (files-absent? org repository migration-branch ["cleanup-log"]))))
 
 (defflow applying-opt-in-migrations
   {:init       (aux.init/setup-service-directory! base-dir repository)
    :fail-fast? true
-   :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
+   :cleanup    aux.init/print-ls
+   #_:cleanup    #_(aux.init/cleanup-service-directory! base-dir repository)}
   (flow "before we start: remove file tracking applied migrations"
     (flow/invoke #(aux.init/run-commands! [["rm" core/applied-migrations-file :dir repo-dir]])))
   (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [migration-d]) "{\"number\": 2}"

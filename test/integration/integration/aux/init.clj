@@ -40,10 +40,14 @@
   [base-dir repository]
   (fn []
     (let [repo-dir    (str base-dir repository)
+          _ (println repo-dir)
           mock-client (client/new-client {:token-fn (constantly "token")})]
       (run-commands! [["mkdir" "-p" repo-dir]
-                      ["cp" "-r" (str "test-resources/" repository) repo-dir]
+                      ["cp" "-r" (str "test-resources/" repository "/") repo-dir]
                       ["git" "init" "." :dir repo-dir]
                       ["git" "add" "4'33" "clouds.md" "fanon.clj" :dir repo-dir]
                       ["git" "-c" "commit.gpgsign=false" "commit" "-m" "initial commit" :dir repo-dir]])
       {:system {:github-client mock-client}})))
+
+(defn print-ls []
+  (run-commands! [["ls" "-lRs" "target"]]))
