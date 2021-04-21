@@ -168,11 +168,9 @@
   (fn [{:keys [opt-in]}] (or (nil? opt-in)
                              (contains? opt-in service))))
 
-; there must be a better way to compose this predicates (without using a macro!)
 (defn compose-filters [filters]
   (reduce (fn [acc f] (fn [value] (and (acc value) (f value)))) (constantly true) filters))
 
-; rename
 (defn run-migrations!* [github-client organization service default-branch target-branch base-dir migrations]
   (let [base-changeset      (-> github-client
                                 (changeset/from-branch! organization service default-branch)
