@@ -3,7 +3,8 @@
             [clojure.java.shell :refer [sh]]
             [clj-github.changeset :as changeset]
             [clj-github.httpkit-client :as client]
-            [ordnungsamt.core :as core]))
+            [ordnungsamt.core :as core]
+            [ordnungsamt.utils :as utils]))
 
 (defn run-commands!
   "executes shell commands and returns the results from the last command a list"
@@ -11,7 +12,7 @@
   (reduce (fn [_previous-result command]
             (let [{:keys [exit err] :as result} (apply sh command)]
               (if (zero? exit)
-                (core/out->list result)
+                (utils/out->list result)
                 (do (println (str "FAILED running command:\n" command "\nerror message:\n" err))
                     (reduced nil)))))
           nil
