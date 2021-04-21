@@ -34,6 +34,9 @@ jobs:
         with:
           cli: 1.10.1.693 # Clojure CLI based on tools.deps
 
+      - name: Get dependencies
+        run: clojure -P
+
       - name: Run cljfmt lint check
         run: clojure -M:lint
 
