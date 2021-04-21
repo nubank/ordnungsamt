@@ -49,5 +49,5 @@
                       ["git" "-c" "commit.gpgsign=false" "commit" "-m" "initial commit" :dir repo-dir]])
       {:system {:github-client mock-client}})))
 
-(defn print-ls []
-  (run-commands! [["ls" "-lRs" "target"]]))
+(defn print-ls [_state]
+  (println (clojure.string/join "\n" (run-commands! [["ls" "-lRs" "target"]]))))
