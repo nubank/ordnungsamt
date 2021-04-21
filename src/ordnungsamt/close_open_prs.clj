@@ -1,6 +1,6 @@
 (ns ordnungsamt.close-open-prs
-  (:require [common-github.pull :as pull]
-            [common-github.repository :as repository]))
+  (:require [clj-github.pull :as pull]
+            [clj-github.repository :as repository]))
 
 (defn close-pr-and-delete-branch! [client org service pr]
   (pull/close-pull! client org service (:number pr))

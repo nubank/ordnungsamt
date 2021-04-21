@@ -1,6 +1,6 @@
 (ns integration.aux.helpers
   (:require [cats.core :as m]
-            [common-github.repository :as repository]
+            [clj-github.repository :as repository]
             [state-flow.api :refer [flow match?] :as flow]))
 
 (defn with-resource

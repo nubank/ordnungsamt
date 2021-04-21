@@ -4,11 +4,11 @@
             [clojure.pprint :refer [pprint]]
             clojure.set
             [clojure.string :as string]
-            [common-github.changeset :as changeset]
-            [common-github.httpkit-client :as github-client]
-            [common-github.issue :as issue]
-            [common-github.pull :as pull]
-            [common-github.token :as token]
+            [clj-github.changeset :as changeset]
+            [clj-github.httpkit-client :as github-client]
+            [clj-github.issue :as issue]
+            [clj-github.pull :as pull]
+            [clj-github.token :as token]
             [ordnungsamt.close-open-prs :refer [close-open-prs!]]
             [ordnungsamt.render :as render])
   (:gen-class))
@@ -59,12 +59,14 @@
 
 (defn- register-migration! [dir {:keys [id title] :as _migration}]
   (when id
-    (let [applied-migrations-filepath (str dir "/" applied-migrations-file)]
-      (->> {:id id :_title title}
-           (conj (read-registered-migrations dir))
-           pprint
-           with-out-str
-           (spit applied-migrations-filepath)))))
+    (let [applied-migrations-filepath (str dir "/" applied-migrations-file)
+          migration-registry          (conj (read-registered-migrations dir) {:id id :_title title})
+          migration-registry-str      (with-out-str (pprint migration-registry))
+          header-comment              (str ";; auto-generated file\n"
+                                           ";; By editing this file you can make the system skip certain migration.\n"
+                                           ";; See README for more details\n")]
+           (spit applied-migrations-filepath
+                 (str header-comment migration-registry-str)))))
 
 (defn- files-to-commit [dir]
   (let [modified  (->> (sh "git" "ls-files" "--modified" "--exclude-standard" :dir dir)
@@ -174,11 +176,20 @@
                                    (:post migrations))]
         (create-migration-pr! github-client changeset' details default-branch)))))
 
-(defn -main [& [service default-branch migrations-directory]]
+(defn resolve-token-fn [token-fn]
+  (when token-fn
+    (let [token-fn' (symbol token-fn)]
+      (require (symbol (namespace token-fn')))
+      (resolve token-fn'))))
+
+(def default-token-fn
+  (token/chain [token/hub-config token/env-var]))
+
+(defn -main [& [service default-branch migrations-directory token-fn]]
   (let [org           "nubank"
-        github-client (github-client/new-client {:token-fn (token/default-chain
-                                                             "nu-secrets-br"
-                                                             "go/agent/release-lib/bumpito_secrets.json")})
+        token-fn      (or (resolve-token-fn token-fn)
+                          default-token-fn)
+        github-client (github-client/new-client {:token-fn token-fn})
         target-branch (str "auto-refactor-" (today))
         migrations    (-> migrations-directory (str "/migrations.edn") slurp read-string)]
     (close-open-prs! github-client org service)
