@@ -66,7 +66,7 @@
        seq))
 
 (defn- drop-changes! [dir]
-  (let [added (out->list (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir))]
+  (let [added (utils/out->list (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir))]
     (run! #(sh "rm" % :dir dir) added))
   (sh "git" "stash" :dir dir)
   (sh "git" "stash" "drop" :dir dir))
