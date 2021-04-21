@@ -14,20 +14,15 @@
       (is (false? (filter {:opt-in #{"serviceB"}}))))))
 
 (deftest test-compose-filters
-  (is (true? ((core/compose-filters [])
-              "a")))
+  (is (true? ((core/compose-filters []) "a")))
 
-  (is (true? ((core/compose-filters [(partial = "a")])
-              "a")))
+  (is (true? ((core/compose-filters [(partial = "a")]) "a")))
 
-  (is (true? ((core/compose-filters [(partial = "a")
-                                     string?])
-              "a")))
+  (is (true? ((core/compose-filters [(partial = "a") string?]) "a")))
 
-  (is (false? ((core/compose-filters [(partial = "a")
-                                      int?])
-               "a")))
+  (is (false? ((core/compose-filters [(partial = "a") int?]) "a")))
 
   (is (false? ((core/compose-filters [(constantly false)
-                                      (fn [_] (throw (Exception. "this exception shouldn't happen")))]) {}))))
+                                      (fn [_] (throw (Exception. "this exception shouldn't happen")))])
+               "a"))))
 
