@@ -1,8 +1,8 @@
 (ns integration.aux.init
-  (:require [clojure.java.io :as io]
-            [clojure.java.shell :refer [sh]]
-            [clj-github.changeset :as changeset]
+  (:require [clj-github.changeset :as changeset]
             [clj-github.httpkit-client :as client]
+            [clojure.java.io :as io]
+            [clojure.java.shell :refer [sh]]
             [ordnungsamt.core :as core]
             [ordnungsamt.utils :as utils]))
 

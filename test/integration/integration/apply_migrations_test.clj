@@ -1,9 +1,9 @@
 (ns integration.apply-migrations-test
   (:require [cheshire.core :as json]
-            clojure.string
-            [clojure.test :refer :all]
             [clj-github.repository :as repository]
             [clj-github.state-flow-helper :refer [mock-github-flow with-github-client]]
+            clojure.string
+            [clojure.test :refer :all]
             [integration.aux.helpers :refer [files-absent? files-present?]]
             [integration.aux.init :as aux.init]
             [matcher-combinators.standalone :as standalone]
@@ -133,7 +133,6 @@
 
                     (migrations-present-in-log? #{4})))
 
-
 (defflow failing-migration-doesnt-run-post-steps
   {:init       (aux.init/setup-service-directory! base-dir repository)
    :fail-fast? true
@@ -153,7 +152,7 @@
                       (files-absent? org repository migration-branch ["cleanup-log"])
                       (flow "and the branch is deleted"
                         (match? {:status 404}
-                                (with-github-client
-                                  #(try (repository/get-branch! % org repository migration-branch)
-                                        (catch clojure.lang.ExceptionInfo e
-                                          (:response (ex-data e))))))))))
+                          (with-github-client
+                            #(try (repository/get-branch! % org repository migration-branch)
+                                  (catch clojure.lang.ExceptionInfo e
+                                    (:response (ex-data e))))))))))

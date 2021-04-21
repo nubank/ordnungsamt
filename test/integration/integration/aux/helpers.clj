@@ -4,7 +4,6 @@
             [clj-github.state-flow-helper :refer [with-github-client]]
             [state-flow.api :refer [flow match?] :as flow]))
 
-
 (defn files-present? [org repository branch files]
   (flow/for [file files]
     (flow (str "file " file " is present in `" branch "` branch")

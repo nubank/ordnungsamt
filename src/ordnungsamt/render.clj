@@ -1,8 +1,8 @@
 (ns ordnungsamt.render
   (:require [clojure.string]
+            [ordnungsamt.utils :as utils]
             [selmer.parser :as selmer]
-            [selmer.util :refer [without-escaping]]
-            [ordnungsamt.utils :as utils]))
+            [selmer.util :refer [without-escaping]]))
 
 (defn render-title [context]
   (selmer.parser/render "[Auto] Refactors - {{date}}" context))

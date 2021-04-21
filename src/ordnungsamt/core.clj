@@ -1,13 +1,13 @@
 (ns ordnungsamt.core
-  (:require [clojure.java.io :as io]
-            [clojure.java.shell :refer [sh]]
-            [clojure.pprint :refer [pprint]]
-            clojure.set
-            [clj-github.changeset :as changeset]
+  (:require [clj-github.changeset :as changeset]
             [clj-github.httpkit-client :as github-client]
             [clj-github.issue :as issue]
             [clj-github.pull :as pull]
             [clj-github.token :as token]
+            [clojure.java.io :as io]
+            [clojure.java.shell :refer [sh]]
+            [clojure.pprint :refer [pprint]]
+            clojure.set
             [ordnungsamt.close-open-prs :refer [close-open-prs!]]
             [ordnungsamt.render :as render]
             [ordnungsamt.utils :as utils])
@@ -42,13 +42,13 @@
           header-comment              (str ";; auto-generated file\n"
                                            ";; By editing this file you can make the system skip certain migration.\n"
                                            ";; See README for more details\n")]
-           (spit applied-migrations-filepath
-                 (str header-comment migration-registry-str)))))
+      (spit applied-migrations-filepath
+            (str header-comment migration-registry-str)))))
 
 (defn- files-to-commit [dir]
   (let [sh->set   (fn [& sh-args] (->> (apply sh sh-args)
-                                     utils/out->list
-                                     (into #{})))
+                                       utils/out->list
+                                       (into #{})))
         modified  (sh->set "git" "ls-files" "--modified" "--exclude-standard" :dir dir)
         deleted   (sh->set "git" "ls-files" "--deleted" "--exclude-standard" :dir dir)
         added     (sh->set "git" "ls-files" "--others" "--exclude-standard" :dir dir)]
@@ -132,7 +132,7 @@
 (defn- create-branch+run-base-migrations!
   [github-client organization service default-branch target-branch base-dir migrations]
   (let [to-run-migrations (remove (fn [{:keys [id]}] (contains? (existing-migration-ids base-dir service) id))
-                                      (:migrations migrations))
+                                  (:migrations migrations))
         base-changeset    (-> github-client
                               (changeset/from-branch! organization service default-branch)
                               (changeset/create-branch! target-branch))]
