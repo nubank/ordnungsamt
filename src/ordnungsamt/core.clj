@@ -192,19 +192,6 @@
         to-run-migrations (filter migrations-filter (:migrations migrations))]
     (run-migrations!* github-client organization service default-branch target-branch base-dir (assoc migrations :migrations to-run-migrations))))
 
-#_(defn run-migrations! [github-client organization service default-branch target-branch base-dir migrations]
-  (let [base-changeset      (-> github-client
-                                (changeset/from-branch! organization service default-branch)
-                                (changeset/create-branch! target-branch))
-        [changeset details] (reduce (partial run-migration! base-dir)
-                                    [base-changeset []]
-                                    to-run-migrations)]
-    (when (seq details)
-      (let [[changeset' _] (reduce (partial run-migration! base-dir)
-                                   [changeset details]
-                                   (:post migrations))]
-        (create-migration-pr! github-client changeset' details default-branch)))))
-
 (defn resolve-token-fn [token-fn]
   (when token-fn
     (let [token-fn' (symbol token-fn)]
