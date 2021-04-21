@@ -108,7 +108,7 @@
                     (files-present? org repository migration-branch ["clouds.md"
                                                                      "frantz_fanon.clj"
                                                                      "cleanup-log"])
-                    (files-absent? org repository migration-branch ["fanon.clj" "angela" "4'33"])))
+                    #_(files-absent? org repository migration-branch ["fanon.clj" "angela" "4'33"])))
 
 (defflow creating-registry+applying-migrations
   {:init       (aux.init/setup-service-directory! base-dir repository)
@@ -151,3 +151,27 @@
                                                {:migrations [failing-migration]
                                                 :post       [cleanup]}))
                       (files-absent? org repository migration-branch ["cleanup-log"]))))
+
+(defflow applying-opt-in-migrations
+  {:init       (aux.init/setup-service-directory! base-dir repository)
+   :fail-fast? true
+   :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
+  (flow "before we start: remove file tracking applied migrations"
+    (flow/invoke #(aux.init/run-commands! [["rm" core/applied-migrations-file :dir repo-dir]])))
+  (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [migration-d]) "{\"number\": 2}"
+                                 (add-label-request? 2) "{}"]
+                     :initial-state {:orgs [{:name org
+                                             :repos [{:name           repository
+                                                      :default_branch "master"}]}]}}
+
+                    (with-github-client
+                      #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repo-dir))
+
+                    (flow "applies migrations where repository has opt-in"
+                      (with-github-client
+                        #(core/run-migrations! % org repository "master" migration-branch base-dir
+                                               {:migrations [(assoc migration-c :opt-in #{"another-repository"})
+                                                             (assoc migration-d :opt-in #{repository})]}))
+
+                      (files-present? org repository migration-branch ["4'33"])
+                      (files-absent? org repository migration-branch ["frantz_fanon.clj"]))))
