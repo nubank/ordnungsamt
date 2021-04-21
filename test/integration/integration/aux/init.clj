@@ -40,7 +40,6 @@
   [base-dir repository]
   (fn []
     (let [repo-dir    (str base-dir repository)
-          _ (println repo-dir)
           mock-client (client/new-client {:token-fn (constantly "token")})]
       (run-commands! [["mkdir" "-p" repo-dir]
                       ["cp" "-r" (str "test-resources/" repository "/.") repo-dir]
