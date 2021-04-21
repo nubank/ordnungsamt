@@ -153,23 +153,26 @@
     [changeset (conj details description)]
     [current-changeset details]))
 
+(defn- existing-migration-ids [base-dir service]
+  (->> (read-registered-migrations (str base-dir service))
+       (map :id)
+       set))
+
 (defn run-migrations! [github-client organization service default-branch target-branch base-dir migrations]
-  (let [registered-migrations (->> (read-registered-migrations (str base-dir service))
-                                   (map :id)
-                                   set)
-        to-run-migrations   (remove (fn [{:keys [id]}] (contains? registered-migrations id))
-                                    (:migrations migrations))
-        base-changeset      (-> github-client
-                                (changeset/from-branch! organization service default-branch)
-                                (changeset/create-branch! target-branch))
-        [changeset details] (reduce (partial run-migration! base-dir)
-                                    [base-changeset []]
-                                    to-run-migrations)]
-    (when (seq details)
+  (let [to-run-migrations     (remove (fn [{:keys [id]}] (contains? (existing-migration-ids base-dir service) id))
+                                      (:migrations migrations))
+        base-changeset        (-> github-client
+                                  (changeset/from-branch! organization service default-branch)
+                                  (changeset/create-branch! target-branch))
+        [changeset details]   (reduce (partial run-migration! base-dir)
+                                      [base-changeset []]
+                                      to-run-migrations)]
+    (if (seq details)
       (let [[changeset' _] (reduce (partial run-migration! base-dir)
                                    [changeset details]
                                    (:post migrations))]
-        (create-migration-pr! github-client changeset' details default-branch)))))
+        (create-migration-pr! github-client changeset' details default-branch))
+      (changeset/delete-branch! base-changeset))))
 
 (defn resolve-token-fn [token-fn]
   (when token-fn

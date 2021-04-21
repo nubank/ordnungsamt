@@ -150,4 +150,10 @@
                         #(core/run-migrations! % org repository "master" migration-branch base-dir
                                                {:migrations [failing-migration]
                                                 :post       [cleanup]}))
-                      (files-absent? org repository migration-branch ["cleanup-log"]))))
+                      (files-absent? org repository migration-branch ["cleanup-log"])
+                      (flow "and the branch is deleted"
+                        (match? {:status 404}
+                                (with-github-client
+                                  #(try (repository/get-branch! % org repository migration-branch)
+                                        (catch clojure.lang.ExceptionInfo e
+                                          (:response (ex-data e))))))))))
