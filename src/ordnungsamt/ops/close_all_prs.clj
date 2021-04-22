@@ -9,5 +9,7 @@
                             read-string)
         close-for-repo! (fn [repo]
                           (println "closing for" repo)
-                          (close-open-prs! github-client org (str repo)))]
+                          (try (close-open-prs! github-client org (str repo))
+                               (catch Exception e
+                                 (println "failed for" repo))))]
     (run! close-for-repo! repositories)))
