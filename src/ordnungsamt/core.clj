@@ -128,21 +128,14 @@
     [changeset (conj details description)]
     [current-changeset details]))
 
-(defn- existing-migration-ids [base-dir service]
-  (->> (read-registered-migrations (str base-dir service))
-       (map :id)
-       set))
-
 (defn- create-branch+run-base-migrations!
   [github-client organization service default-branch target-branch base-dir migrations]
-  (let [to-run-migrations (remove (fn [{:keys [id]}] (contains? (existing-migration-ids base-dir service) id))
-                                  (:migrations migrations))
-        base-changeset    (-> github-client
-                              (changeset/from-branch! organization service default-branch)
-                              (changeset/create-branch! target-branch))]
+  (let [base-changeset (-> github-client
+                           (changeset/from-branch! organization service default-branch)
+                           (changeset/create-branch! target-branch))]
     (reduce (partial run-migration! base-dir)
             [base-changeset []]
-            to-run-migrations)))
+            migrations)))
 
 (defn filter-registered-migrations [base-dir service]
   (let [registered-migrations (->> (read-registered-migrations (str base-dir service))
@@ -159,7 +152,7 @@
 
 (defn run-migrations!* [github-client organization service default-branch target-branch base-dir migrations]
   (let [[changeset details] (create-branch+run-base-migrations!
-                             github-client organization service default-branch target-branch base-dir migrations)]
+                             github-client organization service default-branch target-branch base-dir (:migrations migrations))]
     (if (seq details)
       (let [[changeset' _] (reduce (partial run-migration! base-dir)
                                    [changeset details]
