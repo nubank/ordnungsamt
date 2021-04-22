@@ -1,5 +1,6 @@
 (ns ordnungsamt.render
   (:require [clojure.string]
+            [ordnungsamt.utils :as utils]
             [selmer.parser :as selmer]
             [selmer.util :refer [without-escaping]]))
 
@@ -25,3 +26,9 @@
 (defn render-pr [context]
   (clojure.string/trim
    (selmer.parser/render pr-template {:migrations (map render-migration (:migrations context))})))
+
+(defn render-pr-description! [migration-details]
+  (let [context {:date       (utils/today)
+                 :migrations migration-details}]
+    {:pr-title       (render-title context)
+     :pr-description (render-pr context)}))

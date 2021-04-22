@@ -1,55 +1,32 @@
 (ns ordnungsamt.core
-  (:require [clojure.java.io :as io]
-            [clojure.java.shell :refer [sh]]
-            [clojure.pprint :refer [pprint]]
-            clojure.set
-            [clojure.string :as string]
-            [clj-github.changeset :as changeset]
+  (:require [clj-github.changeset :as changeset]
             [clj-github.httpkit-client :as github-client]
             [clj-github.issue :as issue]
             [clj-github.pull :as pull]
             [clj-github.token :as token]
+            [clojure.java.io :as io]
+            [clojure.java.shell :refer [sh]]
+            [clojure.pprint :refer [pprint]]
+            clojure.set
             [ordnungsamt.close-open-prs :refer [close-open-prs!]]
-            [ordnungsamt.render :as render])
+            [ordnungsamt.render :as render]
+            [ordnungsamt.utils :as utils])
   (:gen-class))
 
 (def applied-migrations-file ".migrations.edn")
-
-(defn- today []
-  (.format (java.text.SimpleDateFormat. "yyyy-MM-dd")
-           (new java.util.Date)))
-
-(defn- print-process-output [{:keys [exit out err]}]
-  (letfn [(print-lines [output]
-            (when output
-              (->> (string/split output (re-pattern (System/lineSeparator)))
-                   (map println)
-                   doall)))]
-    (print-lines out)
-    (when-not (zero? exit)
-      (print-lines err))))
-
-(defn- render-pr-description! [migration-details]
-  (let [context {:date       (today)
-                 :migrations migration-details}]
-    {:pr-title       (render/render-title context)
-     :pr-description (render/render-pr context)}))
 
 (defn- create-migration-pr!
   [client
    {:keys [repo branch org] :as _changeset}
    migration-details
    base-branch]
-  (let [{:keys [pr-title pr-description]} (render-pr-description! migration-details)
+  (let [{:keys [pr-title pr-description]} (render/render-pr-description! migration-details)
         {:keys [number]} (pull/create-pull! client org {:repo   repo
                                                         :title  pr-title
                                                         :branch branch
                                                         :base   base-branch
                                                         :body   pr-description})]
     (issue/add-label! client org repo number "auto-migration")))
-
-(defn out->list [{:keys [out]}]
-  (remove empty? (string/split out #"\n")))
 
 (defn- read-registered-migrations [dir]
   (let [applied-migrations-filepath (str dir "/" applied-migrations-file)]
@@ -65,31 +42,22 @@
           header-comment              (str ";; auto-generated file\n"
                                            ";; By editing this file you can make the system skip certain migration.\n"
                                            ";; See README for more details\n")]
-           (spit applied-migrations-filepath
-                 (str header-comment migration-registry-str)))))
+      (spit applied-migrations-filepath
+            (str header-comment migration-registry-str)))))
 
 (defn- files-to-commit [dir]
-  (let [modified  (->> (sh "git" "ls-files" "--modified" "--exclude-standard" :dir dir)
-                       out->list
-                       (into #{}))
-        deleted   (->> (sh "git" "ls-files" "--deleted" "--exclude-standard" :dir dir)
-                       out->list
-                       (into #{}))
-        added     (->> (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir)
-                       out->list
-                       (into #{}))]
+  (let [sh->set   (fn [& sh-args] (->> (apply sh sh-args)
+                                       utils/out->list
+                                       (into #{})))
+        modified  (sh->set "git" "ls-files" "--modified" "--exclude-standard" :dir dir)
+        deleted   (sh->set "git" "ls-files" "--deleted" "--exclude-standard" :dir dir)
+        added     (sh->set "git" "ls-files" "--others" "--exclude-standard" :dir dir)]
     {:modified (-> modified
                    (conj applied-migrations-file)
                    (clojure.set/difference deleted)
                    (clojure.set/difference added))
      :deleted  deleted
      :added    added}))
-
-(defn- sh! [& args]
-  (let [{:keys [exit err] :as result} (apply sh args)]
-    (when (not (zero? exit))
-      (throw (ex-info (str "FAILED running command:\n" args "\nerror message:\n" err)
-                      result)))))
 
 (defn- has-changes? [dir]
   (->> dir
@@ -98,17 +66,19 @@
        seq))
 
 (defn- drop-changes! [dir]
-  (let [added (out->list (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir))]
+  (let [added (utils/out->list (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir))]
     (run! #(sh "rm" % :dir dir) added))
   (sh "git" "stash" :dir dir)
   (sh "git" "stash" "drop" :dir dir))
 
 (defn- local-commit! [{:keys [modified deleted added]} dir]
-  (run! (fn [file] (sh! "git" "add" file :dir dir)) (concat modified added))
-  (run! (fn [file] (sh! "git" "rm" file :dir dir)) deleted)
-  (sh! "git" "config" "user.name" "ordnungsamt" :dir dir)
-  (sh! "git" "config" "user.email" "order-department@not-real.com" :dir dir)
-  (sh! "git" "-c" "commit.gpgsign=false" "commit" "-m" "migration applied" :dir dir))
+  (run! (fn [file] (utils/sh! "git" "add" file :dir dir))
+        (concat modified added))
+  (run! (fn [file] (utils/sh! "git" "rm" file :dir dir))
+        deleted)
+  (utils/sh! "git" "config" "user.name" "ordnungsamt" :dir dir)
+  (utils/sh! "git" "config" "user.email" "order-department@not-real.com" :dir dir)
+  (utils/sh! "git" "-c" "commit.gpgsign=false" "commit" "-m" "migration applied" :dir dir))
 
 (defn- add-file-changes [changeset repo files]
   (reduce (fn [changeset filepath]
@@ -126,7 +96,7 @@
                                       {:exit 1
                                        :err (str e)}))
         success?                  (zero? exit)]
-    (print-process-output output)
+    (utils/print-process-output output)
     (when (not success?)
       (drop-changes! dir))
     success?))
@@ -158,6 +128,15 @@
     [changeset (conj details description)]
     [current-changeset details]))
 
+(defn- create-branch+run-base-migrations!
+  [github-client organization service default-branch target-branch base-dir migrations]
+  (let [base-changeset (-> github-client
+                           (changeset/from-branch! organization service default-branch)
+                           (changeset/create-branch! target-branch))]
+    (reduce (partial run-migration! base-dir)
+            [base-changeset []]
+            migrations)))
+
 (defn filter-registered-migrations [base-dir service]
   (let [registered-migrations (->> (read-registered-migrations (str base-dir service))
                                    (map :id)
@@ -172,17 +151,14 @@
   (reduce (fn [acc f] (fn [value] (and (acc value) (f value)))) (constantly true) filters))
 
 (defn run-migrations!* [github-client organization service default-branch target-branch base-dir migrations]
-  (let [base-changeset      (-> github-client
-                                (changeset/from-branch! organization service default-branch)
-                                (changeset/create-branch! target-branch))
-        [changeset details] (reduce (partial run-migration! base-dir)
-                                    [base-changeset []]
-                                    (:migrations migrations))]
-    (when (seq details)
+  (let [[changeset details] (create-branch+run-base-migrations!
+                             github-client organization service default-branch target-branch base-dir (:migrations migrations))]
+    (if (seq details)
       (let [[changeset' _] (reduce (partial run-migration! base-dir)
                                    [changeset details]
                                    (:post migrations))]
-        (create-migration-pr! github-client changeset' details default-branch)))))
+        (create-migration-pr! github-client changeset' details default-branch))
+      (changeset/delete-branch! changeset))))
 
 (defn run-migrations! [github-client organization service default-branch target-branch base-dir migrations]
   (let [migrations-filter (compose-filters [(filter-registered-migrations base-dir service)
@@ -204,7 +180,7 @@
         token-fn      (or (resolve-token-fn token-fn)
                           default-token-fn)
         github-client (github-client/new-client {:token-fn token-fn})
-        target-branch (str "auto-refactor-" (today))
+        target-branch (str "auto-refactor-" (utils/today))
         migrations    (-> migrations-directory (str "/migrations.edn") slurp read-string)]
     (close-open-prs! github-client org service)
     (run-migrations! github-client org service default-branch target-branch "" migrations)
