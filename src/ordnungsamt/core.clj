@@ -2,15 +2,19 @@
   (:require [clj-github.changeset :as changeset]
             [clj-github.httpkit-client :as github-client]
             [clj-github.issue :as issue]
+            [clj-github-mock.core :as mock.core]
             [clj-github.pull :as pull]
+            [clj-github.test-helpers :as test-helpers]
             [clj-github.token :as token]
             [clojure.java.io :as io]
             [clojure.java.shell :refer [sh]]
             [clojure.pprint :refer [pprint]]
+            clojure.string
             clojure.set
             [ordnungsamt.close-open-prs :refer [close-open-prs!]]
             [ordnungsamt.render :as render]
-            [ordnungsamt.utils :as utils])
+            [ordnungsamt.utils :as utils]
+            [org.httpkit.fake :as fake])
   (:gen-class))
 
 (def applied-migrations-file ".migrations.edn")
@@ -164,14 +168,45 @@
 (def default-token-fn
   (token/chain [token/hub-config token/env-var]))
 
-(defn -main [& [service default-branch migrations-directory token-fn]]
-  (let [org           "nubank"
-        token-fn      (or (resolve-token-fn token-fn)
-                          default-token-fn)
-        github-client (github-client/new-client {:token-fn token-fn})
-        target-branch (str "auto-refactor-" (utils/today))
-        migrations    (-> migrations-directory (str "/migrations.edn") slurp read-string)]
-    (close-open-prs! github-client org service)
-    (run-migrations! github-client org service default-branch target-branch "" migrations)
+(defmacro with-client [[client initial-state responses] & body]
+  `(fake/with-fake-http
+     ~(into
+       []
+       (concat (test-helpers/build-spec responses)
+               `[#"^https://api.github.com/.*" (mock.core/httpkit-fake-handler {:initial-state ~initial-state})]))
+     (let [~client (github-client/new-client {:token-fn (constantly "token")})]
+       ~@body)))
+
+(defn run-run! [github-client org service default-branch migrations-directory]
+  (let [target-branch (str "auto-refactor-" (utils/today))
+        migrations    (-> migrations-directory
+                          (str "/migrations.edn")
+                          slurp
+                          read-string)]
+    (run-migrations! github-client org service default-branch target-branch "" migrations)))
+
+(defn run-locally! [org service default-branch migrations-directory]
+  (let [pulls-path? (fn [{:keys [path]}] (= path (str "/repos/" org "/" service "/pulls")))
+        issues-req? (fn [{:keys [path]}] (clojure.string/starts-with?
+                                           path (str "/repos/" org "/" service "/issues/")))]
+    (with-client [client
+                  {:orgs [{:name org :repos [{:name           service
+                                              :default_branch default-branch}]}]}
+                  [pulls-path?  "{\"number\": 2}"
+                   issues-req?  "{}"]]
+      (-> (changeset/orphan client org service)
+          (changeset/commit! "initial commit")
+          (changeset/create-branch! "master"))
+      (run-run! client org service default-branch migrations-directory))))
+
+(defn -main [& [service default-branch migrations-directory token-fn run-locally?]]
+  (let [org "nubank"]
+    (if run-locally?
+      (run-locally! org service default-branch migrations-directory)
+      (let [token-fn      (or (resolve-token-fn token-fn)
+                              default-token-fn)
+            github-client (github-client/new-client {:token-fn token-fn})]
+        (close-open-prs! github-client org service)
+        (run-run! github-client org service default-branch migrations-directory)))
     (shutdown-agents)
     (System/exit 0)))

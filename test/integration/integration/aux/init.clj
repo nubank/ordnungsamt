@@ -19,7 +19,7 @@
           commands))
 
 (defn cleanup-service-directory! [base-dir repository]
-  (fn [_state] (run-commands! [["rm" "-rf" (str base-dir repository)]])))
+  (fn [_state] (run-commands! [["rm" "-rf" base-dir]])))
 
 (defn seed-mock-git-repo!
   "seeds the mock git repository's main branch with the provided files' contents"
@@ -36,10 +36,17 @@
         (changeset/commit! "initial commit")
         (changeset/create-branch! "master"))))
 
+(defn setup-migrations-directory!
+  "copies the directory of migrations into place"
+  [base-dir migrations-directory]
+  (run-commands! [["mkdir" "-p" (str base-dir migrations-directory)]
+                  ["cp" "-r" (str "test-resources/" migrations-directory "/") base-dir]]))
+
 (defn setup-service-directory!
   "copies the directory into place and sets up the local git server (needed to provide change information after running a migration)"
   [base-dir repository]
   (fn []
+    (setup-migrations-directory! base-dir "service-migrations")
     (let [repo-dir    (str base-dir repository)
           mock-client (client/new-client {:token-fn (constantly "token")})]
       (run-commands! [["mkdir" "-p" repo-dir]

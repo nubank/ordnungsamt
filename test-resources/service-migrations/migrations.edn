@@ -1,0 +1,26 @@
+{:migrations [{:title       "Uncage silence"
+               :description "Silence doesn't need a container"
+               :created-at  "2021-03-16"
+               :id          1
+               :command     ["../../test-resources/migration-a.sh"]}
+
+              {:title       "Failing migration"
+               :description "Change some things then fail"
+               :created-at  "2021-03-17"
+               :id          2
+               :command     ["../../test-resources/migration-b.sh"]}
+
+              {:title       "move file + update contents"
+               :description "Renames a file and also alters its contents"
+               :created-at  "2021-03-17"
+               :id          3
+               :command     ["../../test-resources/migration-c.sh"]}
+
+              {:title       ""
+               :description ""
+               :id          4
+               :created-at  "2021-03-29"
+               :command     ["../../test-resources/migration-d.sh"]}]
+
+ :post       [{:title       "cleanup"
+               :command     ["../../test-resources/cleanup.sh"]}]}

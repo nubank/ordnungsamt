@@ -10,7 +10,7 @@
             [ordnungsamt.core :as core]
             [state-flow.api :refer [defflow flow match?] :as flow]))
 
-(def base-dir "target/")
+(def base-dir "target/integration/")
 (def repository "example-repo")
 (def repo-dir (str base-dir repository))
 (def org "nubank")
@@ -20,32 +20,32 @@
    :description "Silence doesn't need a container"
    :created-at  "2021-03-16"
    :id          1
-   :command     ["../../test-resources/migration-a.sh"]})
+   :command     ["../service-migrations/migration-a.sh"]})
 
 (def failing-migration
   {:title       "Failing migration"
    :description "Change some things then fail"
    :created-at  "2021-03-17"
    :id          2
-   :command     ["../../test-resources/migration-b.sh"]})
+   :command     ["../service-migrations/migration-b.sh"]})
 
 (def migration-c
   {:title       "move file + update contents"
    :description "Renames a file and also alters its contents"
    :created-at  "2021-03-17"
    :id          3
-   :command     ["../../test-resources/migration-c.sh"]})
+   :command     ["../service-migrations/migration-c.sh"]})
 
 (def migration-d
   {:title       ""
    :description ""
    :id          4
    :created-at  "2021-03-29"
-   :command     ["../../test-resources/migration-d.sh"]})
+   :command     ["../service-migrations/migration-d.sh"]})
 
 (def cleanup
   {:title       "cleanup"
-   :command     ["../../test-resources/cleanup.sh"]})
+   :command     ["../service-migrations/cleanup.sh"]})
 
 (def migrations {:migrations [migration-a
                               failing-migration
@@ -156,3 +156,10 @@
                             #(try (repository/get-branch! % org repository migration-branch)
                                   (catch clojure.lang.ExceptionInfo e
                                     (:response (ex-data e))))))))))
+
+(defflow run-main-locally
+  {:init       (aux.init/setup-service-directory! base-dir repository)
+   :fail-fast? true
+   :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
+  (flow/invoke
+    (core/-main repository "master" "../service-migrations" nil true)))
