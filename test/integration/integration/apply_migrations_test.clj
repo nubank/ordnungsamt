@@ -163,3 +163,27 @@
    :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
   (flow/invoke
     (core/-main repository "master" "../service-migrations" nil true)))
+
+(defflow applying-opt-in-migrations
+  {:init       (aux.init/setup-service-directory! base-dir repository)
+   :fail-fast? true
+   :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
+  (flow "before we start: remove file tracking applied migrations"
+    (flow/invoke #(aux.init/run-commands! [["rm" core/applied-migrations-file :dir repo-dir]])))
+  (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [migration-d]) "{\"number\": 2}"
+                                 (add-label-request? 2) "{}"]
+                     :initial-state {:orgs [{:name org
+                                             :repos [{:name           repository
+                                                      :default_branch "master"}]}]}}
+
+                    (with-github-client
+                      #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repo-dir))
+
+                    (flow "applies migrations where repository has opt-in"
+                      (with-github-client
+                        #(core/run-migrations! % org repository "master" migration-branch base-dir
+                                               {:migrations [(assoc migration-c :opt-in #{"another-repository"})
+                                                             (assoc migration-d :opt-in #{repository})]}))
+
+                      (files-present? org repository migration-branch ["4'33"])
+                      (files-absent? org repository migration-branch ["frantz_fanon.clj"]))))

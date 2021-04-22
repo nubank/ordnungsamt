@@ -132,32 +132,43 @@
     [changeset (conj details description)]
     [current-changeset details]))
 
-(defn- existing-migration-ids [base-dir service]
-  (->> (read-registered-migrations (str base-dir service))
-       (map :id)
-       set))
-
 (defn- create-branch+run-base-migrations!
   [github-client organization service default-branch target-branch base-dir migrations]
-  (let [to-run-migrations (remove (fn [{:keys [id]}] (contains? (existing-migration-ids base-dir service) id))
-                                  (:migrations migrations))
-        base-changeset    (-> github-client
-                              (changeset/from-branch! organization service default-branch)
-                              (changeset/create-branch! target-branch))]
+  (let [base-changeset (-> github-client
+                           (changeset/from-branch! organization service default-branch)
+                           (changeset/create-branch! target-branch))]
     (reduce (partial run-migration! base-dir)
             [base-changeset []]
-            to-run-migrations)))
+            migrations)))
 
-(defn run-migrations!
-  [github-client organization service default-branch target-branch base-dir migrations]
+(defn filter-registered-migrations [base-dir service]
+  (let [registered-migrations (->> (read-registered-migrations (str base-dir service))
+                                   (map :id)
+                                   set)]
+    (fn [{:keys [id]}] (not (contains? registered-migrations id)))))
+
+(defn filter-opt-in [service]
+  (fn [{:keys [opt-in]}] (or (nil? opt-in)
+                             (contains? opt-in service))))
+
+(defn compose-filters [filters]
+  (reduce (fn [acc f] (fn [value] (and (acc value) (f value)))) (constantly true) filters))
+
+(defn run-migrations!* [github-client organization service default-branch target-branch base-dir migrations]
   (let [[changeset details] (create-branch+run-base-migrations!
-                             github-client organization service default-branch target-branch base-dir migrations)]
+                             github-client organization service default-branch target-branch base-dir (:migrations migrations))]
     (if (seq details)
       (let [[changeset' _] (reduce (partial run-migration! base-dir)
                                    [changeset details]
                                    (:post migrations))]
         (create-migration-pr! github-client changeset' details default-branch))
       (changeset/delete-branch! changeset))))
+
+(defn run-migrations! [github-client organization service default-branch target-branch base-dir migrations]
+  (let [migrations-filter (compose-filters [(filter-registered-migrations base-dir service)
+                                            (filter-opt-in service)])
+        to-run-migrations (filter migrations-filter (:migrations migrations))]
+    (run-migrations!* github-client organization service default-branch target-branch base-dir (assoc migrations :migrations to-run-migrations))))
 
 (defn resolve-token-fn [token-fn]
   (when token-fn
