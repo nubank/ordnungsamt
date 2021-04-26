@@ -68,8 +68,9 @@
 
 (def error-reporting
   (comp
-   bound-log-error
-   (state-flow.core/filter-stack-trace state-flow.core/default-stack-trace-exclusions)))
+    state-flow.core/throw-error!
+    bound-log-error
+    (state-flow.core/filter-stack-trace state-flow.core/default-stack-trace-exclusions)))
 
 (defmacro defflow
   [name & flows]

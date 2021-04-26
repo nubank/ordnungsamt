@@ -167,5 +167,5 @@
 
 (defflow run-main-locally
   (flow/invoke
-   (with-redefs [core/exit! (constantly (fn [] nil))]
+   (with-redefs [core/exit! (constantly (fn [] 0))]
      (core/-main "nubank" repository "main" repository-dir migrations-dir nil true))))
