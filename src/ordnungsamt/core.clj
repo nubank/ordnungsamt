@@ -7,12 +7,11 @@
             [clojure.java.io :as io]
             [clojure.java.shell :refer [sh]]
             [clojure.pprint :refer [pprint]]
-            clojure.string
             clojure.set
             [ordnungsamt.close-open-prs :refer [close-open-prs!]]
             [ordnungsamt.render :as render]
-            [ordnungsamt.utils :as utils]
-            [ordnungsamt.run-locally :as run-locally])
+            [ordnungsamt.run-locally :as run-locally]
+            [ordnungsamt.utils :as utils])
   (:gen-class))
 
 (def applied-migrations-file ".migrations.edn")

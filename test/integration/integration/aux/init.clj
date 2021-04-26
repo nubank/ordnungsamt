@@ -7,8 +7,8 @@
             [io.aviso.exception :as aviso.exception]
             [ordnungsamt.core :as core]
             [ordnungsamt.utils :as utils]
-            state-flow.core
-            [state-flow.api :as flow]))
+            [state-flow.api :as flow]
+            state-flow.core))
 
 (defn run-commands!
   "executes shell commands and returns the results from the last command a list"
@@ -68,14 +68,14 @@
 
 (def error-reporting
   (comp
-    bound-log-error
-    (state-flow.core/filter-stack-trace state-flow.core/default-stack-trace-exclusions)))
+   bound-log-error
+   (state-flow.core/filter-stack-trace state-flow.core/default-stack-trace-exclusions)))
 
 (defmacro defflow
   [name & flows]
   `(flow/defflow ~name
-    {:init       (aux.init/setup-service-directory! aux.data/base-dir aux.data/repository)
-     :fail-fast? true
-     :on-error   aux.init/error-reporting
-     :cleanup    (aux.init/cleanup-service-directory! aux.data/base-dir aux.data/repository)}
+     {:init       (aux.init/setup-service-directory! aux.data/base-dir aux.data/repository)
+      :fail-fast? true
+      :on-error   aux.init/error-reporting
+      :cleanup    (aux.init/cleanup-service-directory! aux.data/base-dir aux.data/repository)}
      ~@flows))

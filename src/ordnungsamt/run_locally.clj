@@ -1,7 +1,7 @@
 (ns ordnungsamt.run-locally
-  (:require [clj-github.changeset :as changeset]
+  (:require [clj-github-mock.core :as mock.core]
+            [clj-github.changeset :as changeset]
             [clj-github.httpkit-client :as github-client]
-            [clj-github-mock.core :as mock.core]
             [clj-github.test-helpers :as test-helpers]
             [org.httpkit.fake :as fake]))
 
@@ -21,7 +21,7 @@
   [org service default-branch run-fn]
   (let [pulls-path? (fn [{:keys [path]}] (= path (str "/repos/" org "/" service "/pulls")))
         issues-req? (fn [{:keys [path]}] (clojure.string/starts-with?
-                                           path (str "/repos/" org "/" service "/issues/")))]
+                                          path (str "/repos/" org "/" service "/issues/")))]
     (with-client [client
                   {:orgs [{:name org :repos [{:name           service
                                               :default_branch default-branch}]}]}

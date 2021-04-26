@@ -23,6 +23,6 @@
   (is (false? ((#'core/compose-filters [(partial = "a") int?]) "a")))
 
   (is (false? ((#'core/compose-filters [(constantly false)
-                                      (fn [_] (throw (Exception. "this exception shouldn't happen")))])
+                                        (fn [_] (throw (Exception. "this exception shouldn't happen")))])
                "a"))))
 

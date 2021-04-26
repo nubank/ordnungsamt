@@ -4,9 +4,9 @@
             [clj-github.state-flow-helper :refer [mock-github-flow with-github-client]]
             clojure.string
             [clojure.test :refer :all]
+            [integration.aux.data :refer [migrations-dir org repository repository-dir]]
             [integration.aux.helpers :refer [files-absent? files-present?]]
             [integration.aux.init :as aux.init :refer [defflow]]
-            [integration.aux.data :refer [repository repository-dir migrations-dir org]]
             [matcher-combinators.standalone :as standalone]
             [ordnungsamt.core :as core]
             [state-flow.api :refer [flow match?] :as flow]))
@@ -167,5 +167,5 @@
 
 (defflow run-main-locally
   (flow/invoke
-    (with-redefs [core/exit! (constantly (fn [] nil))]
-      (core/-main "nubank" repository "main" repository-dir migrations-dir nil true))))
+   (with-redefs [core/exit! (constantly (fn [] nil))]
+     (core/-main "nubank" repository "main" repository-dir migrations-dir nil true))))
