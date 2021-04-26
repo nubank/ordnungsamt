@@ -138,17 +138,17 @@
             [base-changeset []]
             migrations)))
 
-(defn filter-registered-migrations [repo-dir]
+(defn- filter-registered-migrations [repo-dir]
   (let [registered-migrations (->> (read-registered-migrations repo-dir)
                                    (map :id)
                                    set)]
     (fn [{:keys [id]}] (not (contains? registered-migrations id)))))
 
-(defn filter-opt-in [service]
+(defn- filter-opt-in [service]
   (fn [{:keys [opt-in]}] (or (nil? opt-in)
                              (contains? opt-in service))))
 
-(defn compose-filters [filters]
+(defn- compose-filters [filters]
   (reduce (fn [acc f] (fn [value] (and (acc value) (f value)))) (constantly true) filters))
 
 (defn run-migrations!* [github-client organization service default-branch target-branch repo-dir migrations]
