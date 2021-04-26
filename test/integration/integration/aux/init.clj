@@ -74,8 +74,8 @@
 (defmacro defflow
   [name & flows]
   `(flow/defflow ~name
-     {:init       (aux.init/setup-service-directory! aux.data/base-dir aux.data/repository)
+     {:init       (setup-service-directory! aux.data/base-dir aux.data/repository)
       :fail-fast? true
-      :on-error   aux.init/error-reporting
-      :cleanup    (aux.init/cleanup-service-directory! aux.data/base-dir aux.data/repository)}
+      :on-error   error-reporting
+      :cleanup    (cleanup-service-directory! aux.data/base-dir aux.data/repository)}
      ~@flows))
