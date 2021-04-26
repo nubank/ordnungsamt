@@ -3,10 +3,12 @@
             [clj-github.httpkit-client :as client]
             [clojure.java.io :as io]
             [clojure.java.shell :refer [sh]]
+            [integration.aux.data :as aux.data]
             [io.aviso.exception :as aviso.exception]
             [ordnungsamt.core :as core]
             [ordnungsamt.utils :as utils]
-            state-flow.core))
+            state-flow.core
+            [state-flow.api :as flow]))
 
 (defn run-commands!
   "executes shell commands and returns the results from the last command a list"
@@ -58,14 +60,22 @@
                       ["git" "-c" "commit.gpgsign=false" "commit" "-m" "initial commit" :dir repo-dir]])
       {:system {:github-client mock-client}})))
 
-(def bound-log-error
-  (fn [& args]
-    (let [default-frame-rules aviso.exception/*default-frame-rules*]
-      (binding [aviso.exception/*default-frame-rules* (concat default-frame-rules [[:name #"clojure\.test.*" :hide]
-                                                                                   [:name #"state-flow\..*" :hide]])]
-        (apply state-flow.core/log-error args)))))
+(defn- bound-log-error [& args]
+  (let [default-frame-rules aviso.exception/*default-frame-rules*]
+    (binding [aviso.exception/*default-frame-rules* (concat default-frame-rules [[:name #"clojure\.test.*" :hide]
+                                                                                 [:name #"state-flow\..*" :hide]])]
+      (apply state-flow.core/log-error args))))
 
 (def error-reporting
   (comp
     bound-log-error
     (state-flow.core/filter-stack-trace state-flow.core/default-stack-trace-exclusions)))
+
+(defmacro defflow
+  [name & flows]
+  `(flow/defflow ~name
+    {:init       (aux.init/setup-service-directory! aux.data/base-dir aux.data/repository)
+     :fail-fast? true
+     :on-error   aux.init/error-reporting
+     :cleanup    (aux.init/cleanup-service-directory! aux.data/base-dir aux.data/repository)}
+     ~@flows))
