@@ -160,6 +160,7 @@
 (defflow run-main-locally
   {:init       (aux.init/setup-service-directory! base-dir repository)
    :fail-fast? true
+   :on-error   aux.init/error-reporting
    :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
   (flow/invoke
     (core/-main repository "master" "../service-migrations" nil true)))

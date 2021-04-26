@@ -3,8 +3,10 @@
             [clj-github.httpkit-client :as client]
             [clojure.java.io :as io]
             [clojure.java.shell :refer [sh]]
+            [io.aviso.exception :as aviso.exception]
             [ordnungsamt.core :as core]
-            [ordnungsamt.utils :as utils]))
+            [ordnungsamt.utils :as utils]
+            state-flow.core))
 
 (defn run-commands!
   "executes shell commands and returns the results from the last command a list"
@@ -55,3 +57,15 @@
                       ["git" "add" "4'33" "clouds.md" "fanon.clj" :dir repo-dir]
                       ["git" "-c" "commit.gpgsign=false" "commit" "-m" "initial commit" :dir repo-dir]])
       {:system {:github-client mock-client}})))
+
+(def bound-log-error
+  (fn [& args]
+    (let [default-frame-rules aviso.exception/*default-frame-rules*]
+      (binding [aviso.exception/*default-frame-rules* (concat default-frame-rules [[:name #"clojure\.test.*" :hide]
+                                                                                   [:name #"state-flow\..*" :hide]])]
+        (apply state-flow.core/log-error args)))))
+
+(def error-reporting
+  (comp
+    bound-log-error
+    (state-flow.core/filter-stack-trace state-flow.core/default-stack-trace-exclusions)))
