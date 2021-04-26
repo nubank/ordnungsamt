@@ -44,7 +44,7 @@
   "copies the directory of migrations into place"
   [base-dir migrations-directory]
   (run-commands! [["mkdir" "-p" (str base-dir migrations-directory)]
-                  ["cp" "-r" (str "test-resources/" migrations-directory "/") base-dir]]))
+                  ["cp" "-r" (str "test-resources/" migrations-directory "/.") (str base-dir migrations-directory)]]))
 
 (defn setup-service-directory!
   "copies the directory into place and sets up the local git server (needed to provide change information after running a migration)"
