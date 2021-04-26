@@ -36,7 +36,7 @@
                              files)]
     (-> file-changes
         (changeset/commit! "initial commit")
-        (changeset/create-branch! "master"))))
+        (changeset/create-branch! "main"))))
 
 (defn setup-migrations-directory!
   "copies the directory of migrations into place"

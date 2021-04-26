@@ -106,11 +106,10 @@
     success?))
 
 (defn- apply+commit-migration!
-  [base-dir
-   {:keys [repo branch] :as base-changeset}
+  [repo-dir
+   {:keys [branch] :as base-changeset}
    {:keys [title] :as migration}]
-  (let [repo-dir       (str base-dir repo)
-        commit-message (str "the ordnungsamt applying " title)
+  (let [commit-message (str "the ordnungsamt applying " title)
         success?       (apply-migration! migration repo-dir)]
     (when (and success? (has-changes? repo-dir))
       (register-migration! repo-dir migration)
@@ -127,22 +126,22 @@
         (local-commit! files-for-pr repo-dir)
         changeset'))))
 
-(defn- run-migration! [base-dir [current-changeset details] migration]
-  (if-let [{:keys [changeset description]} (apply+commit-migration! base-dir current-changeset migration)]
+(defn- run-migration! [repo-dir [current-changeset details] migration]
+  (if-let [{:keys [changeset description]} (apply+commit-migration! repo-dir current-changeset migration)]
     [changeset (conj details description)]
     [current-changeset details]))
 
 (defn- create-branch+run-base-migrations!
-  [github-client organization service default-branch target-branch base-dir migrations]
+  [github-client organization service default-branch target-branch repo-dir migrations]
   (let [base-changeset (-> github-client
                            (changeset/from-branch! organization service default-branch)
                            (changeset/create-branch! target-branch))]
-    (reduce (partial run-migration! base-dir)
+    (reduce (partial run-migration! repo-dir)
             [base-changeset []]
             migrations)))
 
-(defn filter-registered-migrations [base-dir service]
-  (let [registered-migrations (->> (read-registered-migrations (str base-dir service))
+(defn filter-registered-migrations [repo-dir]
+  (let [registered-migrations (->> (read-registered-migrations repo-dir)
                                    (map :id)
                                    set)]
     (fn [{:keys [id]}] (not (contains? registered-migrations id)))))
@@ -154,21 +153,21 @@
 (defn compose-filters [filters]
   (reduce (fn [acc f] (fn [value] (and (acc value) (f value)))) (constantly true) filters))
 
-(defn run-migrations!* [github-client organization service default-branch target-branch base-dir migrations]
+(defn run-migrations!* [github-client organization service default-branch target-branch repo-dir migrations]
   (let [[changeset details] (create-branch+run-base-migrations!
-                             github-client organization service default-branch target-branch base-dir (:migrations migrations))]
+                             github-client organization service default-branch target-branch repo-dir (:migrations migrations))]
     (if (seq details)
-      (let [[changeset' _] (reduce (partial run-migration! base-dir)
+      (let [[changeset' _] (reduce (partial run-migration! repo-dir)
                                    [changeset details]
                                    (:post migrations))]
         (create-migration-pr! github-client changeset' details default-branch))
       (changeset/delete-branch! changeset))))
 
-(defn run-migrations! [github-client organization service default-branch target-branch base-dir migrations]
-  (let [migrations-filter (compose-filters [(filter-registered-migrations base-dir service)
+(defn run-migrations! [github-client organization service default-branch target-branch repo-dir migrations]
+  (let [migrations-filter (compose-filters [(filter-registered-migrations repo-dir)
                                             (filter-opt-in service)])
         to-run-migrations (filter migrations-filter (:migrations migrations))]
-    (run-migrations!* github-client organization service default-branch target-branch base-dir (assoc migrations :migrations to-run-migrations))))
+    (run-migrations!* github-client organization service default-branch target-branch repo-dir (assoc migrations :migrations to-run-migrations))))
 
 (defn resolve-token-fn [token-fn]
   (when token-fn
@@ -188,15 +187,15 @@
      (let [~client (github-client/new-client {:token-fn (constantly "token")})]
        ~@body)))
 
-(defn run-run! [github-client org service default-branch migrations-directory]
+(defn run-run! [github-client org service default-branch repository-directory migrations-directory]
   (let [target-branch (str "auto-refactor-" (utils/today))
         migrations    (-> migrations-directory
                           (str "/migrations.edn")
                           slurp
                           read-string)]
-    (run-migrations! github-client org service default-branch target-branch "" migrations)))
+    (run-migrations! github-client org service default-branch target-branch repository-directory migrations)))
 
-(defn run-locally! [org service default-branch migrations-directory]
+(defn run-locally! [org service default-branch repository-directory migrations-directory]
   (let [pulls-path? (fn [{:keys [path]}] (= path (str "/repos/" org "/" service "/pulls")))
         issues-req? (fn [{:keys [path]}] (clojure.string/starts-with?
                                            path (str "/repos/" org "/" service "/issues/")))]
@@ -207,17 +206,19 @@
                    issues-req?  "{}"]]
       (-> (changeset/orphan client org service)
           (changeset/commit! "initial commit")
-          (changeset/create-branch! "master"))
-      (run-run! client org service default-branch migrations-directory))))
+          (changeset/create-branch! "main"))
+      (run-run! client org service default-branch repository-directory migrations-directory))))
 
-(defn -main [& [service default-branch migrations-directory token-fn run-locally?]]
-  (let [org "nubank"]
-    (if run-locally?
-      (run-locally! org service default-branch migrations-directory)
-      (let [token-fn      (or (resolve-token-fn token-fn)
-                              default-token-fn)
-            github-client (github-client/new-client {:token-fn token-fn})]
-        (close-open-prs! github-client org service)
-        (run-run! github-client org service default-branch migrations-directory)))
-    (shutdown-agents)
-    (System/exit 0)))
+(defn- exit! []
+  (shutdown-agents)
+  (System/exit 0))
+
+(defn -main [& [org service default-branch repository-directory migrations-directory token-fn run-locally?]]
+  (if run-locally?
+    (run-locally! org service default-branch repository-directory migrations-directory)
+    (let [token-fn      (or (resolve-token-fn token-fn)
+                            default-token-fn)
+          github-client (github-client/new-client {:token-fn token-fn})]
+      (close-open-prs! github-client org service)
+      (run-run! github-client org service default-branch repository-directory migrations-directory)))
+  (exit!))

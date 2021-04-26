@@ -12,8 +12,10 @@
               (->> (string/split output (re-pattern (System/lineSeparator)))
                    (map println)
                    doall)))]
-    (print-lines out)
-    (when-not (zero? exit)
+    (when (seq out)
+      (print-lines out))
+    (when (and (< 0 exit)
+               (seq err))
       (print-lines err))))
 
 (defn out->list [{:keys [out]}]
