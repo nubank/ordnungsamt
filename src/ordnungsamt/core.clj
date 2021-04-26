@@ -2,9 +2,7 @@
   (:require [clj-github.changeset :as changeset]
             [clj-github.httpkit-client :as github-client]
             [clj-github.issue :as issue]
-            [clj-github-mock.core :as mock.core]
             [clj-github.pull :as pull]
-            [clj-github.test-helpers :as test-helpers]
             [clj-github.token :as token]
             [clojure.java.io :as io]
             [clojure.java.shell :refer [sh]]
@@ -14,7 +12,7 @@
             [ordnungsamt.close-open-prs :refer [close-open-prs!]]
             [ordnungsamt.render :as render]
             [ordnungsamt.utils :as utils]
-            [org.httpkit.fake :as fake])
+            [ordnungsamt.run-locally :as run-locally])
   (:gen-class))
 
 (def applied-migrations-file ".migrations.edn")
@@ -178,16 +176,7 @@
 (def default-token-fn
   (token/chain [token/hub-config token/env-var]))
 
-(defmacro with-client [[client initial-state responses] & body]
-  `(fake/with-fake-http
-     ~(into
-       []
-       (concat (test-helpers/build-spec responses)
-               `[#"^https://api.github.com/.*" (mock.core/httpkit-fake-handler {:initial-state ~initial-state})]))
-     (let [~client (github-client/new-client {:token-fn (constantly "token")})]
-       ~@body)))
-
-(defn run-run! [github-client org service default-branch repository-directory migrations-directory]
+(defn load+run-migrations! [github-client org service default-branch repository-directory migrations-directory]
   (let [target-branch (str "auto-refactor-" (utils/today))
         migrations    (-> migrations-directory
                           (str "/migrations.edn")
@@ -195,30 +184,18 @@
                           read-string)]
     (run-migrations! github-client org service default-branch target-branch repository-directory migrations)))
 
-(defn run-locally! [org service default-branch repository-directory migrations-directory]
-  (let [pulls-path? (fn [{:keys [path]}] (= path (str "/repos/" org "/" service "/pulls")))
-        issues-req? (fn [{:keys [path]}] (clojure.string/starts-with?
-                                           path (str "/repos/" org "/" service "/issues/")))]
-    (with-client [client
-                  {:orgs [{:name org :repos [{:name           service
-                                              :default_branch default-branch}]}]}
-                  [pulls-path?  "{\"number\": 2}"
-                   issues-req?  "{}"]]
-      (-> (changeset/orphan client org service)
-          (changeset/commit! "initial commit")
-          (changeset/create-branch! "main"))
-      (run-run! client org service default-branch repository-directory migrations-directory))))
-
 (defn- exit! []
   (shutdown-agents)
   (System/exit 0))
 
 (defn -main [& [org service default-branch repository-directory migrations-directory token-fn run-locally?]]
   (if run-locally?
-    (run-locally! org service default-branch repository-directory migrations-directory)
+    (run-locally/run-locally!
+     org service default-branch (fn [client] (load+run-migrations!
+                                              client org service default-branch repository-directory migrations-directory)))
     (let [token-fn      (or (resolve-token-fn token-fn)
                             default-token-fn)
           github-client (github-client/new-client {:token-fn token-fn})]
       (close-open-prs! github-client org service)
-      (run-run! github-client org service default-branch repository-directory migrations-directory)))
+      (load+run-migrations! github-client org service default-branch repository-directory migrations-directory)))
   (exit!))
