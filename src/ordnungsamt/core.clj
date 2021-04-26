@@ -72,14 +72,12 @@
   (sh "git" "stash" :dir dir)
   (sh "git" "stash" "drop" :dir dir))
 
-(defn- local-commit! [{:keys [modified deleted added]} dir]
+(defn- local-commit! [title {:keys [modified deleted added]} dir]
   (run! (fn [file] (utils/sh! "git" "add" file :dir dir))
         (concat modified added))
   (run! (fn [file] (utils/sh! "git" "rm" file :dir dir))
         deleted)
-  (utils/sh! "git" "config" "user.name" "ordnungsamt" :dir dir)
-  (utils/sh! "git" "config" "user.email" "order-department@not-real.com" :dir dir)
-  (utils/sh! "git" "-c" "commit.gpgsign=false" "commit" "-m" "migration applied" :dir dir))
+  (utils/sh! "git" "-c" "commit.gpgsign=false" "commit" "--author=\"ordnungsamt <order-department@not-real.com>\"" "-m" (str "migration applied: " title) :dir dir))
 
 (defn- add-file-changes [changeset repo files]
   (reduce (fn [changeset filepath]
@@ -120,7 +118,7 @@
                                             (assoc :branch branch)
                                             changeset/update-branch!)
                            :description (select-keys migration [:title :created-at :description])}]
-        (local-commit! files-for-pr repo-dir)
+        (local-commit! title files-for-pr repo-dir)
         changeset'))))
 
 (defn- run-migration! [repo-dir [current-changeset details] migration]
