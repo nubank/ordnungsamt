@@ -180,7 +180,6 @@
 
                       (files-present? org repository migration-branch ["4'33"])
                       (files-absent? org repository migration-branch ["frantz_fanon.clj"]))))
-; (defflow run-main-locally)
 
 (defflow run-main-locally
   {:init       (aux.init/setup-service-directory! base-dir repository)
@@ -188,5 +187,5 @@
    :on-error   aux.init/error-reporting
    :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
   (flow/invoke
-    (with-redefs [core/exit! (constantly 0)]
+    (with-redefs [core/exit! (constantly (fn [] nil))]
       (core/-main "nubank" repository "main" (str base-dir "example-repo") (str base-dir "service-migrations") nil true))))
