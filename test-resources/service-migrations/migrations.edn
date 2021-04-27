@@ -14,7 +14,13 @@
                :description "Renames a file and also alters its contents"
                :created-at  "2021-03-17"
                :id          3
-               :command     ["../service-migrations/rename-file-migration.sh"]}]
+               :command     ["../service-migrations/rename-file-migration.sh"]}
+
+              {:title       "migration with no changes"
+               :description "noop migration that shouldn't ever be registered"
+               :id          4
+               :created-at  "2021-04-27"
+               :command     ["../service-migrations/noop-migration.sh"]}]
 
  :post       [{:title       "cleanup"
                :command     ["../service-migrations/cleanup.sh"]}]}

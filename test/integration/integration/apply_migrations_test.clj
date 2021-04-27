@@ -11,42 +11,17 @@
             [ordnungsamt.core :as core]
             [state-flow.api :refer [flow match?] :as flow]))
 
-(def remove-file-migration
-  {:title       "Uncage silence"
-   :description "Silence doesn't need a container"
-   :created-at  "2021-03-16"
-   :id          1
-   :command     ["../service-migrations/remove-file-migration.sh"]})
+(def migrations (#'core/read-migrations! "test-resources/service-migrations"))
 
-(def failing-migration
-  {:title       "Failing migration"
-   :description "Change some things then fail"
-   :created-at  "2021-03-17"
-   :id          2
-   :command     ["../service-migrations/failing-migration.sh"]})
+(defn- find-with-id
+  [desired-id {:keys [migrations]}]
+  (first (filter (fn [{:keys [id]}] (= desired-id id)) migrations)))
 
-(def rename-file-migration
-  {:title       "move file + update contents"
-   :description "Renames a file and also alters its contents"
-   :created-at  "2021-03-17"
-   :id          3
-   :command     ["../service-migrations/rename-file-migration.sh"]})
-
-(def noop-migration
-  {:title       "migration with no changes"
-   :description "noop migration that shouldn't ever be registered"
-   :id          5
-   :created-at  "2021-04-27"
-   :command     ["../service-migrations/noop-migration.sh"]})
-
-(def cleanup
-  {:title       "cleanup"
-   :command     ["../service-migrations/cleanup.sh"]})
-
-(def migrations {:migrations [remove-file-migration
-                              failing-migration
-                              rename-file-migration]
-                 :post       [cleanup]})
+(def remove-file-migration (find-with-id 1 migrations))
+(def failing-migration     (find-with-id 2 migrations))
+(def rename-file-migration (find-with-id 3 migrations))
+(def noop-migration        (find-with-id 4 migrations))
+(def cleanup               (first (:post migrations)))
 
 (def migration-branch "auto-refactor-2021-03-24")
 

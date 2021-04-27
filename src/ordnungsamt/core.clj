@@ -175,12 +175,15 @@
 (def default-token-fn
   (token/chain [token/hub-config token/env-var]))
 
+(defn- read-migrations! [migrations-directory]
+  (-> migrations-directory
+      (str "/migrations.edn")
+      slurp
+      read-string))
+
 (defn load+run-migrations! [github-client org service default-branch repository-directory migrations-directory]
   (let [target-branch (str "auto-refactor-" (utils/today))
-        migrations    (-> migrations-directory
-                          (str "/migrations.edn")
-                          slurp
-                          read-string)]
+        migrations    (read-migrations! migrations-directory)]
     (run-migrations! github-client org service default-branch target-branch repository-directory migrations)))
 
 (defn- exit! []
