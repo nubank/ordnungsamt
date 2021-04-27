@@ -11,26 +11,26 @@
             [ordnungsamt.core :as core]
             [state-flow.api :refer [flow match?] :as flow]))
 
-(def migration-a
+(def remove-file-migration
   {:title       "Uncage silence"
    :description "Silence doesn't need a container"
    :created-at  "2021-03-16"
    :id          1
-   :command     ["../service-migrations/migration-a.sh"]})
+   :command     ["../service-migrations/remove-file-migration.sh"]})
 
 (def failing-migration
   {:title       "Failing migration"
    :description "Change some things then fail"
    :created-at  "2021-03-17"
    :id          2
-   :command     ["../service-migrations/migration-b.sh"]})
+   :command     ["../service-migrations/failing-migration.sh"]})
 
-(def migration-c
+(def rename-file-migration
   {:title       "move file + update contents"
    :description "Renames a file and also alters its contents"
    :created-at  "2021-03-17"
    :id          3
-   :command     ["../service-migrations/migration-c.sh"]})
+   :command     ["../service-migrations/rename-file-migration.sh"]})
 
 (def migration-d
   {:title       ""
@@ -44,15 +44,15 @@
    :description "noop migration that shouldn't ever be registered"
    :id          5
    :created-at  "2021-04-27"
-   :command     ["../../test-resources/noop-migration.sh"]})
+   :command     ["../service-migrations/noop-migration.sh"]})
 
 (def cleanup
   {:title       "cleanup"
    :command     ["../service-migrations/cleanup.sh"]})
 
-(def migrations {:migrations [migration-a
+(def migrations {:migrations [remove-file-migration
                               failing-migration
-                              migration-c
+                              rename-file-migration
                               migration-d]
                  :post       [cleanup]})
 
@@ -89,7 +89,7 @@
 
 (defflow applying+skipping-migrations
   [:let [initial-files ["4'33" "clouds.md" "fanon.clj" core/applied-migrations-file]]]
-  (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [migration-a migration-c]) "{\"number\": 2}"
+  (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [remove-file-migration rename-file-migration]) "{\"number\": 2}"
                                  (add-label-request? 2) "{}"]
                      :initial-state {:orgs [{:name org
                                              :repos [{:name           repository
@@ -156,21 +156,18 @@
                       (branch-absent? org repository migration-branch))))
 
 (defflow empty-migration-doesnt-run-post-steps
-  {:init       (aux.init/setup-service-directory! base-dir repository)
-   :fail-fast? true
-   :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
   (flow "before we start: remove file tracking applied migrations"
-    (flow/invoke #(aux.init/run-commands! [["rm" core/applied-migrations-file :dir repo-dir]])))
+    (flow/invoke #(aux.init/run-commands! [["rm" core/applied-migrations-file :dir repository-dir]])))
   (mock-github-flow {:initial-state {:orgs [{:name org
                                              :repos [{:name           repository
                                                       :default_branch "main"}]}]}}
 
                     (with-github-client
-                      #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repo-dir))
+                      #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repository-dir))
 
                     (flow "running a failing migration means the post step is skipped"
                       (with-github-client
-                        #(core/run-migrations! % org repository "master" migration-branch base-dir
+                        #(core/run-migrations! % org repository "main" migration-branch repository-dir
                                                {:migrations [noop-migration]
                                                 :post       [cleanup]}))
                       (files-absent? org repository migration-branch ["cleanup-log"])
@@ -191,7 +188,7 @@
                     (flow "applies migrations where repository has opt-in"
                       (with-github-client
                         #(core/run-migrations! % org repository "main" migration-branch repository-dir
-                                               {:migrations [(assoc migration-c :opt-in #{"another-repository"})
+                                               {:migrations [(assoc rename-file-migration :opt-in #{"another-repository"})
                                                              (assoc migration-d :opt-in #{repository})]}))
 
                       (files-present? org repository migration-branch ["4'33"])
