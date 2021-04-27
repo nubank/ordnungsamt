@@ -1,11 +1,10 @@
 (ns integration.apply-migrations-test
   (:require [cheshire.core :as json]
-            [clj-github.repository :as repository]
             [clj-github.state-flow-helper :refer [mock-github-flow with-github-client]]
             clojure.string
             [clojure.test :refer :all]
             [integration.aux.data :refer [migrations-dir org repository repository-dir]]
-            [integration.aux.helpers :refer [files-absent? files-present?]]
+            [integration.aux.helpers :refer [branch-absent? files-absent? files-present? migrations-present-in-log?]]
             [integration.aux.init :as aux.init :refer [defflow]]
             [matcher-combinators.standalone :as standalone]
             [ordnungsamt.core :as core]
@@ -46,22 +45,6 @@
     (= path
        (str "/repos/" org "/" repository "/issues/" number))))
 
-(defn- migrations-present-in-log? [expected-migration-id-set]
-  (flow "was the .migrations.edn file updated with the expected migrations?"
-    [migrations-contents (with-github-client
-                           #(repository/get-content!
-                             % org repository core/applied-migrations-file {:ref migration-branch}))]
-    (match? expected-migration-id-set
-      (set (map :id (read-string migrations-contents))))))
-
-(defn- branch-absent? [org repository branch]
-  (flow "and the branch is deleted"
-    (match? {:status 404}
-      (with-github-client
-        #(try (repository/get-branch! % org repository branch)
-              (catch clojure.lang.ExceptionInfo e
-                (:response (ex-data e))))))))
-
 (defflow applying+skipping-migrations
   [:let [initial-files ["4'33" "clouds.md" "fanon.clj" core/applied-migrations-file]]]
   (mock-github-flow
@@ -79,7 +62,7 @@
    (with-github-client
      #(core/run-migrations! % org repository "main" migration-branch repository-dir migrations))
 
-   (migrations-present-in-log? #{0 1 3})
+   (migrations-present-in-log? org repository migration-branch #{0 1 3})
 
    (flow "migration renaming `fanon.clj` file was skipped"
      (files-present? org repository migration-branch ["clouds.md"
@@ -107,7 +90,7 @@
          % org repository "main" migration-branch repository-dir {:migrations [rename-file-migration]}))
      (files-present? org repository migration-branch ["frantz_fanon.clj" core/applied-migrations-file]))
 
-   (migrations-present-in-log? #{3})))
+   (migrations-present-in-log? org repository migration-branch #{3})))
 
 (defflow failing-migration-doesnt-run-post-steps
   (mock-github-flow
