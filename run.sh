@@ -2,8 +2,10 @@
 
 set -euo pipefail
 
-service=$1
-default_branch=$2
-migrations_directory=$3
+org=$1
+service=$2
+default_branch=$3
+service_directory=$4
+migrations_directory=$5
 
-java -jar /ordnungsamt.jar "$service" "$default_branch" "$migrations_directory"
+clojure -m ordnungsamt.core "$org" "$service" "$default_branch" "$service_directory" "$migrations_directory"
