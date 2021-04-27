@@ -1,4 +1,4 @@
 [{:id     0
   :_title "some first migration"}
- {:id     4
-  :_title "migration d"}]
+ {:id     3
+  :_title "rename file migration"}]

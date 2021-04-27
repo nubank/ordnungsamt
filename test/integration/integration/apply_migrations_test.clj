@@ -32,13 +32,6 @@
    :id          3
    :command     ["../service-migrations/rename-file-migration.sh"]})
 
-(def migration-d
-  {:title       ""
-   :description ""
-   :id          4
-   :created-at  "2021-03-29"
-   :command     ["../service-migrations/migration-d.sh"]})
-
 (def noop-migration
   {:title       "migration with no changes"
    :description "noop migration that shouldn't ever be registered"
@@ -52,8 +45,7 @@
 
 (def migrations {:migrations [remove-file-migration
                               failing-migration
-                              rename-file-migration
-                              migration-d]
+                              rename-file-migration]
                  :post       [cleanup]})
 
 (def migration-branch "auto-refactor-2021-03-24")
@@ -87,9 +79,17 @@
     (match? expected-migration-id-set
       (set (map :id (read-string migrations-contents))))))
 
+(defn- branch-absent? [org repository branch]
+  (flow "and the branch is deleted"
+    (match? {:status 404}
+      (with-github-client
+        #(try (repository/get-branch! % org repository branch)
+              (catch clojure.lang.ExceptionInfo e
+                (:response (ex-data e))))))))
+
 (defflow applying+skipping-migrations
   [:let [initial-files ["4'33" "clouds.md" "fanon.clj" core/applied-migrations-file]]]
-  (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [remove-file-migration rename-file-migration]) "{\"number\": 2}"
+  (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [remove-file-migration]) "{\"number\": 2}"
                                  (add-label-request? 2) "{}"]
                      :initial-state {:orgs [{:name org
                                              :repos [{:name           repository
@@ -103,40 +103,34 @@
                     (with-github-client
                       #(core/run-migrations! % org repository "main" migration-branch repository-dir migrations))
 
-                    (migrations-present-in-log? #{0 1 3 4})
+                    (migrations-present-in-log? #{0 1 3})
 
-                    (files-present? org repository migration-branch ["clouds.md"
-                                                                     "frantz_fanon.clj"
-                                                                     "cleanup-log"])
-                    (files-absent? org repository migration-branch ["fanon.clj" "angela" "4'33"])))
+                    (flow "migration renaming `fanon.clj` file was skipped"
+                      (files-present? org repository migration-branch ["clouds.md"
+                                                                       "fanon.clj"
+                                                                       "cleanup-log"])
+                      (files-absent? org repository migration-branch ["franz_fanon.clj" "angela" "4'33"]))))
 
 (defflow creating-registry+applying-migrations
   (flow "before we start: remove file tracking applied migrations"
     (flow/invoke #(aux.init/run-commands! [["rm" core/applied-migrations-file :dir repository-dir]])))
-  (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [migration-d]) "{\"number\": 2}"
+  (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [rename-file-migration]) "{\"number\": 2}"
                                  (add-label-request? 2) "{}"]
                      :initial-state {:orgs [{:name org
                                              :repos [{:name           repository
                                                       :default_branch "main"}]}]}}
 
                     (with-github-client
-                      #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repository-dir))
+                      #(aux.init/seed-mock-git-repo! % org repository ["fanon.clj"] repository-dir))
 
                     (flow "running migrations creates the .migrations.edn file when it doesn't already exist"
                       (files-absent? org repository "main" [core/applied-migrations-file])
                       (with-github-client
-                        #(core/run-migrations! % org repository "main" migration-branch repository-dir {:migrations [migration-d]}))
-                      (files-present? org repository migration-branch [core/applied-migrations-file]))
+                        #(core/run-migrations!
+                          % org repository "main" migration-branch repository-dir {:migrations [rename-file-migration]}))
+                      (files-present? org repository migration-branch ["frantz_fanon.clj" core/applied-migrations-file]))
 
-                    (migrations-present-in-log? #{4})))
-
-(defn branch-absent? [org repository branch]
-  (flow "and the branch is deleted"
-    (match? {:status 404}
-      (with-github-client
-        #(try (repository/get-branch! % org repository branch)
-              (catch clojure.lang.ExceptionInfo e
-                (:response (ex-data e))))))))
+                    (migrations-present-in-log? #{3})))
 
 (defflow failing-migration-doesnt-run-post-steps
   (mock-github-flow {:initial-state {:orgs [{:name org
@@ -176,7 +170,7 @@
 (defflow applying-opt-in-migrations
   (flow "before we start: remove file tracking applied migrations"
     (flow/invoke #(aux.init/run-commands! [["rm" core/applied-migrations-file :dir repository-dir]])))
-  (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [migration-d]) "{\"number\": 2}"
+  (mock-github-flow {:responses [(create-pr-request? "[Auto] Refactors -" [remove-file-migration]) "{\"number\": 2}"
                                  (add-label-request? 2) "{}"]
                      :initial-state {:orgs [{:name org
                                              :repos [{:name           repository
@@ -185,14 +179,16 @@
                     (with-github-client
                       #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repository-dir))
 
+                    (files-present? org repository "main" ["4'33"])
                     (flow "applies migrations where repository has opt-in"
                       (with-github-client
                         #(core/run-migrations! % org repository "main" migration-branch repository-dir
                                                {:migrations [(assoc rename-file-migration :opt-in #{"another-repository"})
-                                                             (assoc migration-d :opt-in #{repository})]}))
+                                                             (assoc remove-file-migration :opt-in #{repository})]}))
 
-                      (files-present? org repository migration-branch ["4'33"])
-                      (files-absent? org repository migration-branch ["frantz_fanon.clj"]))))
+                      (flow "the remove-file migration ran, but the rename-file migration didn't"
+                        (files-present? org repository migration-branch ["fanon.clj"])
+                        (files-absent? org repository migration-branch ["4'33" "frantz_fanon.clj"])))))
 
 (defflow run-main-locally
   (flow/invoke
