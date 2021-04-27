@@ -39,6 +39,13 @@
    :created-at  "2021-03-29"
    :command     ["../service-migrations/migration-d.sh"]})
 
+(def noop-migration
+  {:title       "migration with no changes"
+   :description "noop migration that shouldn't ever be registered"
+   :id          5
+   :created-at  "2021-04-27"
+   :command     ["../../test-resources/noop-migration.sh"]})
+
 (def cleanup
   {:title       "cleanup"
    :command     ["../service-migrations/cleanup.sh"]})
@@ -123,6 +130,14 @@
 
                     (migrations-present-in-log? #{4})))
 
+(defn branch-absent? [org repository branch]
+  (flow "and the branch is deleted"
+    (match? {:status 404}
+      (with-github-client
+        #(try (repository/get-branch! % org repository branch)
+              (catch clojure.lang.ExceptionInfo e
+                (:response (ex-data e))))))))
+
 (defflow failing-migration-doesnt-run-post-steps
   (mock-github-flow {:initial-state {:orgs [{:name org
                                              :repos [{:name           repository
@@ -137,12 +152,29 @@
                                                {:migrations [failing-migration]
                                                 :post       [cleanup]}))
                       (files-absent? org repository migration-branch ["cleanup-log"])
-                      (flow "and the branch is deleted"
-                        (match? {:status 404}
-                          (with-github-client
-                            #(try (repository/get-branch! % org repository migration-branch)
-                                  (catch clojure.lang.ExceptionInfo e
-                                    (:response (ex-data e))))))))))
+
+                      (branch-absent? org repository migration-branch))))
+
+(defflow empty-migration-doesnt-run-post-steps
+  {:init       (aux.init/setup-service-directory! base-dir repository)
+   :fail-fast? true
+   :cleanup    (aux.init/cleanup-service-directory! base-dir repository)}
+  (flow "before we start: remove file tracking applied migrations"
+    (flow/invoke #(aux.init/run-commands! [["rm" core/applied-migrations-file :dir repo-dir]])))
+  (mock-github-flow {:initial-state {:orgs [{:name org
+                                             :repos [{:name           repository
+                                                      :default_branch "main"}]}]}}
+
+                    (with-github-client
+                      #(aux.init/seed-mock-git-repo! % org repository ["4'33" "clouds.md" "fanon.clj"] repo-dir))
+
+                    (flow "running a failing migration means the post step is skipped"
+                      (with-github-client
+                        #(core/run-migrations! % org repository "master" migration-branch base-dir
+                                               {:migrations [noop-migration]
+                                                :post       [cleanup]}))
+                      (files-absent? org repository migration-branch ["cleanup-log"])
+                      (branch-absent? org repository migration-branch))))
 
 (defflow applying-opt-in-migrations
   (flow "before we start: remove file tracking applied migrations"
