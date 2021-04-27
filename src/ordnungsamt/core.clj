@@ -60,10 +60,11 @@
      :added    added}))
 
 (defn- has-changes? [dir]
-  (->> dir
-       files-to-commit
-       (apply concat)
-       seq))
+  (let [fileset (->> dir
+                     files-to-commit
+                     vals
+                     (apply clojure.set/union))]
+    (seq (clojure.set/difference fileset #{applied-migrations-file}))))
 
 (defn- drop-changes! [dir]
   (let [added (utils/out->list (sh "git" "ls-files" "--others" "--exclude-standard" :dir dir))]
@@ -108,7 +109,8 @@
   (let [repo-dir       (str base-dir repo)
         commit-message (str "the ordnungsamt applying " title)
         success?       (apply-migration! migration repo-dir)]
-    (when (and success? (has-changes? repo-dir))
+    (when (and success?
+               (has-changes? repo-dir))
       (register-migration! repo-dir migration)
       (let [files-for-pr  (files-to-commit repo-dir)
             changed-files (->> files-for-pr
