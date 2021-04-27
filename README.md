@@ -1,7 +1,5 @@
 # ordnungsamt
-The Ordnungsamt (department of order) helps maintain order and consistency in ~society~ clojure microservices.
-
-Largely despised, but one must wonder what society would be reduced to without it.
+The ordnungsamt (department of order) helps maintain order and consistency across GitHub-hosted code-bases.
 
 ## context
 
@@ -11,10 +9,11 @@ This is where `ordnungsamt` comes in. It is a tool that runs ad-hoc migrations o
 
 ## operation
 
-The rough flow is:
+The intented way to run `ordnungsamt` is via a build server where you can schedule `ordnungsamt` to be run over a set of GitHub hosted repositories.
 
- - your CI schedules `ordnungsamt` to be run on every repository.
- - for a run, the CI checks out `ordnungsamt`, the repository in question, and a repository of migrations.
+For a run of `ordnungsamt` over a repository:
+
+ - the CI should check out `ordnungsamt`, the repository in question, and a repository of migrations.
  - `ordnungsamt` closes any open GitHub pull requests that have the label `auto-refactor`
  - `ordnungsamt` iterates through the migrations:
    - checking the `.migrations.edn` file to see if the migration has already been applied to the local repository.
@@ -39,8 +38,9 @@ To make `ordnungsamt` skip an undesired migration you can update the `.migration
 
 ## tests
 
-Integration tests use an in-memory git server for mocking interactions with github.
-That said, `ordnungsamt` uses the host machine's `git` binary to detect how files were changed after running migrations, so make sure you have `git` installed.
+Integration tests use an in-memory git server for mocking interactions with GitHub.
+
+Additionally, the `ordnungsamt` test suite and production code both makes use of the host machine's `git` binary to detect how files were changed after running migrations, so make sure you have `git` installed.
 
 ### running
 
@@ -49,3 +49,11 @@ via the repl or
 ```
 clj -A:test:test-runner
 ```
+
+## A Note on the libraries powering `ordnungsamt`
+
+This project acts as an open example of how to use several other projects that Nubank uses internally:
+
+ - [`state-flow`](https://github.com/nubank/state-flow): a Clojure framework that powers our single- and multi-service integration tests. Nubank has hundreds of Clojure microservices that are all tested using this pattern. It is being used a little bit differently here but it should still give you a feel of what the tool looks like in use.
+ - [`clj-github`](https://github.com/nubank/clj-github): A Clojure library for interacting with GitHub APIs. Nubank also uses it for tools that keep all our microservice library dependencies up to date.
+ - [`clj-github-mock`](https://github.com/nubank/clj-github-mock): A nice GitHub API mock that allows really nice test coverage of `ordnungamts` interactions with GitHub.
