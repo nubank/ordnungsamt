@@ -3,8 +3,8 @@
  :paths ["src"]
  :deps {org.clojure/clojure         {:mvn/version "1.10.3"}
         selmer/selmer               {:mvn/version "1.12.33"}
-        dev.nubank/clj-github       {:mvn/version "0.1.1"}
-        dev.nubank/clj-github-mock  {:mvn/version "0.1.0"}
+        dev.nubank/clj-github       {:mvn/version "0.2.0"}
+        dev.nubank/clj-github-mock  {:mvn/version "0.2.0"}
         http-kit/http-kit           {:mvn/version "2.4.0-alpha3"}
         cheshire/cheshire           {:mvn/version "5.10.0"}}
 
