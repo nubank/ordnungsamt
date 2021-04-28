@@ -57,14 +57,21 @@
   (flow "before we start: remove file tracking applied migrations"
     (flow/invoke #(aux.init/run-commands! [["rm" core/applied-migrations-file :dir repository-dir]]))))
 
+(def base-state
+  {:initial-state {:orgs [{:name org
+                           :repos [{:name           repository
+                                    :default_branch "main"}]}]}})
+
+(defn initial-state-expecting-create-pr-requests [expected-migrations]
+  (assoc base-state
+    :responses
+    [(create-pr-request? "[Auto] Refactors -" expected-migrations) "{\"number\": 2}"
+     (add-label-request? 2) "{}"]))
+
 (defflow applying+skipping-migrations
   [:let [initial-files ["4'33" "clouds.md" "fanon.clj" core/applied-migrations-file]]]
   (mock-github-flow
-   {:responses [(create-pr-request? "[Auto] Refactors -" [remove-file-migration]) "{\"number\": 2}"
-                (add-label-request? 2) "{}"]
-    :initial-state {:orgs [{:name org
-                            :repos [{:name           repository
-                                     :default_branch "main"}]}]}}
+   (initial-state-expecting-create-pr-requests [remove-file-migration])
 
    (seed-files! initial-files)
    (files-present? org repository "main" initial-files)
@@ -78,11 +85,7 @@
 (defflow creating-registry+applying-migrations
   remove-dot-migrations-file!
   (mock-github-flow
-   {:responses [(create-pr-request? "[Auto] Refactors -" [rename-file-migration]) "{\"number\": 2}"
-                (add-label-request? 2) "{}"]
-    :initial-state {:orgs [{:name org
-                            :repos [{:name           repository
-                                     :default_branch "main"}]}]}}
+   (initial-state-expecting-create-pr-requests [rename-file-migration])
 
    (seed-files! ["fanon.clj"])
 
@@ -94,43 +97,31 @@
    (migrations-present-in-log? org repository migration-branch #{3})))
 
 (defflow failing-migration-doesnt-run-post-steps
-  (mock-github-flow
-   {:initial-state {:orgs [{:name org
-                            :repos [{:name           repository
-                                     :default_branch "main"}]}]}}
+  (mock-github-flow base-state
+                    (seed-files! ["4'33" "clouds.md" "fanon.clj"])
 
-   (seed-files! ["4'33" "clouds.md" "fanon.clj"])
+                    (flow "running a failing migration means the post step is skipped"
+                      (run-migrations! {:migrations [failing-migration]
+                                        :post       [cleanup]})
+                      (files-absent? org repository migration-branch ["cleanup-log"])
 
-   (flow "running a failing migration means the post step is skipped"
-     (run-migrations! {:migrations [failing-migration]
-                       :post       [cleanup]})
-     (files-absent? org repository migration-branch ["cleanup-log"])
-
-     (branch-absent? org repository migration-branch))))
+                      (branch-absent? org repository migration-branch))))
 
 (defflow empty-migration-doesnt-run-post-steps
   remove-dot-migrations-file!
-  (mock-github-flow
-   {:initial-state {:orgs [{:name org
-                            :repos [{:name           repository
-                                     :default_branch "main"}]}]}}
+  (mock-github-flow base-state
+                    (seed-files! ["4'33" "clouds.md" "fanon.clj"])
 
-   (seed-files! ["4'33" "clouds.md" "fanon.clj"])
-
-   (flow "running a failing migration means the post step is skipped"
-     (run-migrations! {:migrations [noop-migration]
-                       :post       [cleanup]})
-     (files-absent? org repository migration-branch ["cleanup-log"])
-     (branch-absent? org repository migration-branch))))
+                    (flow "running a failing migration means the post step is skipped"
+                      (run-migrations! {:migrations [noop-migration]
+                                        :post       [cleanup]})
+                      (files-absent? org repository migration-branch ["cleanup-log"])
+                      (branch-absent? org repository migration-branch))))
 
 (defflow applying-opt-in-migrations
   remove-dot-migrations-file!
   (mock-github-flow
-   {:responses [(create-pr-request? "[Auto] Refactors -" [remove-file-migration]) "{\"number\": 2}"
-                (add-label-request? 2) "{}"]
-    :initial-state {:orgs [{:name org
-                            :repos [{:name           repository
-                                     :default_branch "main"}]}]}}
+   (initial-state-expecting-create-pr-requests [remove-file-migration])
 
    (seed-files! ["4'33" "clouds.md" "fanon.clj"])
 
