@@ -1,26 +1,26 @@
 {:migrations [{:title       "Uncage silence"
-               :description "Silence doesn't need a container"
+               :description "Remove a file"
                :created-at  "2021-03-16"
                :id          1
-               :command     ["../service-migrations/migration-a.sh"]}
+               :command     ["../service-migrations/remove-file-migration.sh"]}
 
               {:title       "Failing migration"
                :description "Change some things then fail"
                :created-at  "2021-03-17"
                :id          2
-               :command     ["../service-migrations/migration-b.sh"]}
+               :command     ["../service-migrations/failing-migration.sh"]}
 
               {:title       "move file + update contents"
                :description "Renames a file and also alters its contents"
                :created-at  "2021-03-17"
                :id          3
-               :command     ["../service-migrations/migration-c.sh"]}
+               :command     ["../service-migrations/rename-file-migration.sh"]}
 
-              {:title       ""
-               :description ""
+              {:title       "migration with no changes"
+               :description "noop migration that shouldn't ever be registered"
                :id          4
-               :created-at  "2021-03-29"
-               :command     ["../service-migrations/migration-d.sh"]}]
+               :created-at  "2021-04-27"
+               :command     ["../service-migrations/noop-migration.sh"]}]
 
  :post       [{:title       "cleanup"
                :command     ["../service-migrations/cleanup.sh"]}]}

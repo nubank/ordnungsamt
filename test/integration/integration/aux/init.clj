@@ -4,7 +4,6 @@
             [clojure.java.io :as io]
             [clojure.java.shell :refer [sh]]
             [integration.aux.data :as aux.data]
-            [io.aviso.exception :as aviso.exception]
             [ordnungsamt.core :as core]
             [ordnungsamt.utils :as utils]
             [state-flow.api :as flow]
@@ -60,17 +59,12 @@
                       ["git" "-c" "commit.gpgsign=false" "commit" "-m" "initial commit" :dir repo-dir]])
       {:system {:github-client mock-client}})))
 
-(defn- bound-log-error [& args]
-  (let [default-frame-rules aviso.exception/*default-frame-rules*]
-    (binding [aviso.exception/*default-frame-rules* (concat default-frame-rules [[:name #"clojure\.test.*" :hide]
-                                                                                 [:name #"state-flow\..*" :hide]])]
-      (apply state-flow.core/log-error args))))
-
 (def error-reporting
   (comp
    state-flow.core/throw-error!
-   bound-log-error
-   (state-flow.core/filter-stack-trace state-flow.core/default-stack-trace-exclusions)))
+   state-flow.core/log-error
+   (state-flow.core/filter-stack-trace (concat state-flow.core/default-stack-trace-exclusions
+                                               [#"^state-flow\." #"^clojure\.test\."]))))
 
 (defmacro defflow
   [name & flows]
