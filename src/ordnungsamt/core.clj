@@ -89,7 +89,8 @@
           changeset
           files))
 
-(defn- apply-migration! [{:keys [command] :as _migration} dir]
+(defn- apply-migration! [{:keys [command title] :as _migration} dir]
+  (println "starting migration: " title)
   (let [{:keys [exit] :as output} (try
                                     (apply sh (concat command [:dir dir]))
                                     (catch java.io.IOException e
@@ -97,8 +98,11 @@
                                        :err (str e)}))
         success?                  (zero? exit)]
     (utils/print-process-output output)
-    (when (not success?)
-      (drop-changes! dir))
+    (if success?
+      (println "completed migration: " title)
+      (do
+        (println "migration error, aborting changes in: " title)
+        (drop-changes! dir)))
     success?))
 
 (defn- apply+commit-migration!
