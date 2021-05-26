@@ -89,7 +89,15 @@
           changeset
           files))
 
-(defn- apply-migration! [{:keys [command] :as _migration} dir]
+(defn- print-with-header [event-type message start?]
+  (let [header              "------------------------------------------"
+        message-with-header (if start?
+                              (str header "\n" event-type ": " message "\n")
+                              (str "\n" event-type ": " message "\n" header "\n"))]
+    (println message-with-header)))
+
+(defn- apply-migration! [{:keys [command title] :as _migration} dir]
+  (print-with-header "START" title true)
   (let [{:keys [exit] :as output} (try
                                     (apply sh (concat command [:dir dir]))
                                     (catch java.io.IOException e
@@ -98,6 +106,7 @@
         success?                  (zero? exit)]
     (utils/print-process-output output)
     (when (not success?)
+      (print-with-header "ERROR" title false)
       (drop-changes! dir))
     success?))
 
@@ -107,21 +116,24 @@
    {:keys [title] :as migration}]
   (let [commit-message (str "the ordnungsamt applying " title)
         success?       (apply-migration! migration repo-dir)]
-    (when (and success?
-               (has-changes? repo-dir))
-      (register-migration! repo-dir migration)
-      (let [files-for-pr  (files-to-commit repo-dir)
-            changed-files (->> files-for-pr
-                               vals
-                               (apply clojure.set/union))
-            changeset'    {:changeset   (-> base-changeset
-                                            (add-file-changes repo-dir changed-files)
-                                            (changeset/commit! commit-message)
-                                            (assoc :branch branch)
-                                            changeset/update-branch!)
-                           :description (select-keys migration [:title :created-at :description])}]
-        (local-commit! title files-for-pr repo-dir)
-        changeset'))))
+    (when success?
+      (if (has-changes? repo-dir)
+        (do
+          (print-with-header "CHANGES" title false)
+          (register-migration! repo-dir migration)
+          (let [files-for-pr  (files-to-commit repo-dir)
+                changed-files (->> files-for-pr
+                                   vals
+                                   (apply clojure.set/union))
+                changeset'    {:changeset   (-> base-changeset
+                                                (add-file-changes repo-dir changed-files)
+                                                (changeset/commit! commit-message)
+                                                (assoc :branch branch)
+                                                changeset/update-branch!)
+                               :description (select-keys migration [:title :created-at :description])}]
+            (local-commit! title files-for-pr repo-dir)
+            changeset'))
+        (print-with-header "NO CHANGES" title false)))))
 
 (defn- run-migration! [repo-dir [current-changeset details] migration]
   (if-let [{:keys [changeset description]} (apply+commit-migration! repo-dir current-changeset migration)]
