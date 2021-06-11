@@ -1,0 +1,12 @@
+{:mvn/repos {"nu-maven" {:url "s3://nu-maven/releases/" :snapshots false}
+             "central"  {:url "https://repo1.maven.org/maven2/"}
+             "clojars"  {:url "https://clojars.org/repo"}}
+ :paths     ["src"]
+ :deps      {dev.nubank/umschreiben-clj {:mvn/version "0.1.0"}
+             borkdude/grasp             {:git/url "https://github.com/borkdude/grasp"
+                                         :sha     "3fa99aedd0594c0ae958de7d25d8900992f60ca5"}}
+ :aliases   {:test        {:extra-paths ["test" "test-resources"]
+                           :extra-deps {nubank/matcher-combinators  {:mvn/version "3.1.4"}}}
+             :test-runner {:extra-deps {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
+                                                                   :sha "209b64504cb3bd3b99ecfec7937b358a879f55c1"}}
+                           :main-opts ["-m" "cognitect.test-runner"]}}}

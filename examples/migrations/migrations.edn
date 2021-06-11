@@ -1,0 +1,7 @@
+{:migrations [{:title       "Replace deprecated usage"
+               :id          0
+               :description "A while back we broke up some namespaces in order to isolate some heavy-to-load libraries to a dedicated namespace. This migration updates usages to point to their new location"
+               :created-at  "2021-03-25"
+               :command     ["examples/migrations/rename-things/migration.sh"]}]
+ :post       [{:title   "lein lint-fix"
+               :command ["lein" "lint-fix"]}]}
