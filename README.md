@@ -1,5 +1,16 @@
 # ordnungsamt
+
 The ordnungsamt (department of order) helps maintain order and consistency across GitHub-hosted code-bases.
+
+  * [context](#context)
+  * [operation](#operation)
+    + [skipping migrations](#skipping-migrations)
+  * [running migrations](#running-migrations)
+    + [local test run of your migrations](#local-test-run-of-your-migrations)
+  * [writing migrations](#writing-migrations)
+  * [tests](#tests)
+    + [running](#running)
+  * [A Note on the libraries powering `ordnungsamt`](#a-note-on-the-libraries-powering-ordnungsamt)
 
 ## context
 
@@ -35,12 +46,66 @@ The `.migrations.edn` file takes the form of:
 When `ordnungsamt` opens a PR with some new migrations migration being applied, it will add the migration to that list.
 To make `ordnungsamt` skip an undesired migration you can update the `.migrations.edn` file to contain an entry relating to the migration in question. `:id` is the only important field, the `:_title` serves as a human-readable helper.
 
+## running migrations
+
+The `run.sh` script is the CLI entry-point to running migrations and should be called like:
+
+```
+./run.sh <github-organization> <github-repository-name> <main-branch> <local-repository-checkout> <migrations-directory>
+```
+
+For example:
+
+```
+./run.sh nubank matcher-combinators master ../matcher-combinators ../refactor-migrations
+```
+
+Will run all the migrations in `refactor-migrations/` on the `matcher-combinators` repository and open a PR if any changes are registered.
+
+This example invocation above assumes you have:
+ - a local checkout of [`nubank/matcher-combinators`](https://github.com/nubank/matcher-combinators) at `../matcher-combinators`
+ - [your github creditionals configured](https://github.com/nubank/clj-github#credentials-options)
+ - a migrations folder `../refactor-migrations` that has a `migrations.edn` file that follows the following form (see [`examples/migrations/`](https://github.com/nubank/ordnungsamt/blob/main/examples/migrations/) for an example migration directory):
+
+ ```
+{:migrations [{:title       "Replace deprecated usage"
+               :id          0
+               :description "In order to isolate some heavy-to-load libraries, we broke them up into dedicated namespace. This migration updates usages to point to their new location"
+               :created-at  "2021-03-25"
+               :command     ["../refactor-migrations/rename-things/migration.sh"]}]
+ :post       [{:title   "lein lint-fix"
+               :command ["lein" "lint-fix"]}]}
+ ```
+
+**Note**: We haven't properly thought through the path resoluation logic yet. So for now, when `ordnungsamt` runs migrations, all the paths should be relative to where `./run.sh` is executed.
+
+### local test run of your migrations
+
+If you want to test your migrations but not actually send anything to GitHub / open a pull request, you can use the `run-locally.sh` script
+
+```
+./run-locally.sh nubank mockfn main ../mockfn ../refactor-migrations
+```
+
+**Note:** given that `ordnungsamt` implementation currently shells out to `git commit` to track changes, running this this will make local git commits to the `../mockfn` repository.
+Please be sure you don't have pending changes and remember to discard the commits afterwards.
+
+
+## writing migrations
+
+`ordnungsamt` is the engine for running migrations and registering their changes. But how does one write migrations and tell `ordnungsamt` about them?
+
+The migrations themselves can be written with whatever tool you'd like.
+
+In [`examples/migrations/`](https://github.com/nubank/ordnungsamt/blob/main/examples/migrations/) we provide a sketch of how to do a rename migration using [`borkdude/grasp`](https://github.com/borkdude/grasp) + [`nubank/umschreiben-clj`](https://github.com/nubank/umschreiben-clj/)
+
 
 ## tests
 
 Integration tests use an in-memory git server for mocking interactions with GitHub.
 
 Additionally, the `ordnungsamt` test suite and production code both makes use of the host machine's `git` binary to detect how files were changed after running migrations, so make sure you have `git` installed.
+
 
 ### running
 
