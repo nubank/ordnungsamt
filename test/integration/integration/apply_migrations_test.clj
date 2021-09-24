@@ -62,11 +62,15 @@
                            :repos [{:name           repository
                                     :default_branch "main"}]}]}})
 
+(defn json-response [body]
+  {:body body
+   :headers {:content-type "application/json"}})
+
 (defn initial-state-expecting-create-pr-requests [expected-migrations]
   (assoc base-state
     :responses
-    [(create-pr-request? "[Auto] Refactors -" expected-migrations) "{\"number\": 2}"
-     (add-label-request? 2) "{}"]))
+    [(create-pr-request? "[Auto] Refactors -" expected-migrations) (json-response "{\"number\": 2}")
+     (add-label-request? 2) (json-response "{}")]))
 
 (defflow applying+skipping-migrations
   [:let [initial-files ["4'33" "clouds.md" "fanon.clj" core/applied-migrations-file]]]
