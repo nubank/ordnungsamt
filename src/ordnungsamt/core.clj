@@ -176,7 +176,12 @@
   (let [migrations-filter (compose-filters [(filter-registered-migrations repo-dir)
                                             (filter-opt-in service)])
         to-run-migrations (filter migrations-filter (:migrations migrations))]
-    (run-migrations!* github-client organization service default-branch target-branch repo-dir (assoc migrations :migrations to-run-migrations))))
+    (try
+      (run-migrations!* github-client organization service default-branch target-branch repo-dir (assoc migrations :migrations to-run-migrations))
+      (catch Exception e
+        (do
+          (println e)
+          (throw e))))))
 
 (defn resolve-token-fn [token-fn]
   (when token-fn
