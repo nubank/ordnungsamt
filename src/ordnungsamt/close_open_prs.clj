@@ -7,6 +7,8 @@
   (repository/delete-reference! client org service (str "heads/" (pull/pull->branch-name pr))))
 
 (defn close-open-prs! [client org service]
+  (println "start: close-open-prs!")
   (->> (pull/get-open-pulls! client org service)
        (filter #(pull/has-label? % "auto-migration"))
-       (run! (partial close-pr-and-delete-branch! client org service))))
+       (run! (partial close-pr-and-delete-branch! client org service)))
+  (println "end: close-open-prs!"))

@@ -142,6 +142,7 @@
 
 (defn- create-branch+run-base-migrations!
   [github-client organization service default-branch target-branch repo-dir migrations]
+  (println "create-branch+run-base-migrations!")
   (let [base-changeset (-> github-client
                            (changeset/from-branch! organization service default-branch)
                            (changeset/create-branch! target-branch))]
