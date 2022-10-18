@@ -1,6 +1,4 @@
-{:mvn/repos {"nu-maven" {:url "s3://nu-maven/releases/" :snapshots false}
-             "central"  {:url "https://repo1.maven.org/maven2/"}
-             "clojars"  {:url "https://clojars.org/repo"}}
+{:mvn/repos {"nu-codeartifact" {:url "https://maven.cicd.nubank.world"}}
  :paths     ["src"]
  :deps      {dev.nubank/umschreiben-clj {:mvn/version "0.1.0"}
              borkdude/grasp             {:git/url "https://github.com/borkdude/grasp"
