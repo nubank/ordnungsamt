@@ -1,5 +1,4 @@
-{:mvn/repos {"central"  {:url "https://repo1.maven.org/maven2/"}
-             "clojars"  {:url "https://clojars.org/repo/"}}
+{:mvn/repos {"nu-codeartifact"   {:url "https://maven.cicd.nubank.world"}} 
  :paths ["src"]
  :deps {org.clojure/clojure         {:mvn/version "1.10.3"}
         selmer/selmer               {:mvn/version "1.12.33"}
@@ -9,9 +8,14 @@
         http-kit.fake/http-kit.fake {:mvn/version "0.2.2"}
         cheshire/cheshire           {:mvn/version "5.10.0"}}
 
- :aliases {:test {:extra-paths ["test/unit" "test/integration" "test-resources"]
+ :aliases {:dev {:extra-paths ["test" "test/integration"]
+                 :main-opts ["-e" "(require,'nu)" "-m" "nrepl.cmdline" "--middleware" "[cider.nrepl/cider-middleware]"]
+                 :extra-deps {nubank/matcher-combinators {:mvn/version "3.8.5"}
+                              cider/cider-nrepl {:mvn/version "0.29.0"}
+                              cljdev/cljdev     {:mvn/version "0.11.0"}}}
+           :test {:extra-paths ["test/unit" "test/integration" "test-resources"]
                   :extra-deps {org.clojure/test.check      {:mvn/version "0.10.0"}
-                               nubank/matcher-combinators  {:mvn/version "3.1.4"}
+                               nubank/matcher-combinators  {:mvn/version "3.8.5"}
                                nubank/state-flow           {:mvn/version "5.11.3"}
                                robert/hooke                {:mvn/version "1.3.0"}}}
            :test-runner {:extra-deps {com.cognitect/test-runner {:git/url "https://github.com/cognitect-labs/test-runner.git"
