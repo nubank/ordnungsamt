@@ -213,6 +213,3 @@
       (close-open-prs! github-client org service)
       (load+run-migrations! github-client org service default-branch repository-directory migrations-directory)))
   (exit!))
-
-
-
