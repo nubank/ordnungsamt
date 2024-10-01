@@ -1,11 +1,13 @@
 (ns ordnungsamt.render
   (:require [clojure.string]
             [ordnungsamt.utils :as utils]
-            [selmer.parser :as selmer]
+            [selmer.parser]
             [selmer.util :refer [without-escaping]]))
 
 (defn render-title [context]
-  (selmer.parser/render "[Auto] Refactors - {{date}}" context))
+  (if (-> context :migrations count (= 1))
+    (selmer.parser/render "[Auto] {{title}}" (-> context :migrations first))
+    (selmer.parser/render "[Auto] Refactors - {{date}}" context)))
 
 (def migration-template
   "## {{title}} [{{created-at}}]
