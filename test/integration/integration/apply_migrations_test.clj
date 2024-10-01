@@ -35,7 +35,7 @@
     (and (= (:path request)
             (str "/repos/" org "/" repository "/pulls"))
          (standalone/match?
-           {:title #(clojure.string/starts-with? % title-prefix)
+           {:title #(or (clojure.string/starts-with? % title-prefix) (clojure.string/includes? % (-> migrations first :title)))
             :body  (fn [txt] (every? (partial includes-migration-info? txt)
                                      migrations))}
            (json/parse-string (:body request) keyword)))))
