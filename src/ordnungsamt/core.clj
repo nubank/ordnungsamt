@@ -74,7 +74,7 @@
   (sh "git" "stash" "drop" :dir dir))
 
 (defn- local-commit! [title {:keys [modified deleted added]} dir]
-  (run! (fn [file] (utils/sh! "git" "add" file :dir dir))
+  (run! (fn [file] (utils/sh! "git" "add" "-f" file :dir dir))
         (concat modified added))
   (run! (fn [file] (utils/sh! "git" "rm" file :dir dir))
         deleted)
