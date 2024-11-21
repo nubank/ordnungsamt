@@ -8,4 +8,4 @@ default_branch=$3
 service_directory=$4
 migrations_directory=$5
 
-clojure -m ordnungsamt.core "$org" "$service" "$default_branch" "$service_directory" "$migrations_directory"
+clojure --report stderr -m ordnungsamt.core "$org" "$service" "$default_branch" "$service_directory" "$migrations_directory"
