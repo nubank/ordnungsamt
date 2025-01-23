@@ -227,8 +227,12 @@
       (and throw?
            (not (success-codes status)))
       (throw (ex-info "Request to GitHub failed"
-                      {:response (assoc-in response [:opts :headers "Authorization"] "<REDACTED>") #_(select-keys response [:status :body])
-                       :opts     (assoc-in opts [:headers "Authorization"] "<REDACTED>")}
+                      {:response (-> response
+                                     (assoc-in  [:opts :headers "Authorization"] "<REDACTED>")
+                                     (update-in [:opts :body] assoc #(str "<JSON PAYLOAD WITH " (count %) " BYTES>"))) #_(select-keys response [:status :body])
+                       :opts     (-> opts
+                                     (assoc-in [:headers "Authorization"] "<REDACTED>")
+                                     (update-in [:body] assoc #(str "<JSON PAYLOAD WITH " (count %) " BYTES>")))}
                       error))
 
       :else
