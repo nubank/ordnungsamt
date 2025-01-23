@@ -194,7 +194,7 @@
       read-string))
 
 (defn load+run-migrations! [github-client org service default-branch repository-directory migrations-directory]
-  (let [target-branch (str "auto-refactor-" (utils/today))
+  (let [target-branch (str "auto-refactor-" (utils/now))
         migrations    (read-migrations! migrations-directory)]
     (run-migrations! github-client org service default-branch target-branch repository-directory migrations)))
 

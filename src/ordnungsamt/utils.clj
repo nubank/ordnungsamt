@@ -6,6 +6,10 @@
   (.format (java.text.SimpleDateFormat. "yyyy-MM-dd")
            (new java.util.Date)))
 
+(defn now []
+  (.format (java.text.SimpleDateFormat. "yyyyMMddHHmmss")
+           (new java.util.Date)))
+
 (defn print-process-output [{:keys [exit out err]}]
   (letfn [(print-lines [output]
             (when output
