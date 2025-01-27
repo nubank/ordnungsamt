@@ -202,43 +202,56 @@
   (shutdown-agents)
   (System/exit 0))
 
-;; (in-ns 'clj-github.httpkit-client);;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+(in-ns 'clj-github.httpkit-client);;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
-;; (defn request
-;;   "Sends a synchronous request to GitHub, largely as a wrapper around HTTP Kit.
+(defn curlify
+  "Converts a map of HTTP request options into a curl command string."
+  [opts]
+  (let [method (name (:method opts))
+        url    (str "https://api.github.com" (:path opts))
+        headers (->> (:headers opts)
+                     (map (fn [[k v]] (str "-H '" k ": " v "'")))
+                     (clojure.string/join " "))
+        body   (when-let [b (:body opts)]
+                 (str "-d '" b "'"))]
+    (binding [*out* *err*] (println (str "\n\n\ncurl -X " method " '" url "' " headers " " body "\n\n\n")))))
 
-;;   In addition to normal HTTP Kit keys in the request map, two additional keys are added.
+(defn request
+  "Sends a synchronous request to GitHub, largely as a wrapper around HTTP Kit.
 
-;;   :path - used to create the :url key for HTTP kit; this is the path relative to https://api.github.com.
+  In addition to normal HTTP Kit keys in the request map, two additional keys are added.
 
-;;   :throw? - if true (the default), then non-success status codes (codes outside the range of 200 to 204)
-;;     result in a thrown exception. If set to false, then the response is returned, regardless and the
-;;     caller can decide what to do with failure statuses."
-;;   [client req-map]
-;;   (let [{:keys [throw?]
-;;          :or   {throw? true}} req-map
-;;         {:keys [error status body opts] :as response} @(httpkit/request (prepare client req-map))]
-;;     (cond
-;;       error
-;;       (throw (ex-info "Failure sending request to GitHub"
-;;                       {:opts opts}
-;;                       error))
+  :path - used to create the :url key for HTTP kit; this is the path relative to https://api.github.com.
 
-;;       (and throw?
-;;            (not (success-codes status)))
-;;       (throw (ex-info "Request to GitHub failed"
-;;                       {:response (-> response
-;;                                      (assoc-in [:opts :headers "Authorization"] "<REDACTED>")
-;;                                      (update-in [:opts :body] #(str "<JSON PAYLOAD WITH " (count %) " BYTES>"))) #_(select-keys response [:status :body])
-;;                        :opts     (-> opts
-;;                                      (assoc-in [:headers "Authorization"] "<REDACTED>")
-;;                                      (update-in [:body] #(str "<JSON PAYLOAD WITH " (count %) " BYTES>")))}
-;;                       error))
+  :throw? - if true (the default), then non-success status codes (codes outside the range of 200 to 204)
+    result in a thrown exception. If set to false, then the response is returned, regardless and the
+    caller can decide what to do with failure statuses."
+  [client req-map]
+  (curlify (prepare client req-map))
+  (let [{:keys [throw?]
+         :or   {throw? true}} req-map
+        {:keys [error status body opts] :as response} @(httpkit/request (prepare client req-map))]
+    (cond
+      error
+      (throw (ex-info "Failure sending request to GitHub"
+                      {:opts opts}
+                      error))
 
-;;       :else
-;;       (assoc response :body (parse-body (content-type response) body)))))
+      (and throw?
+           (not (success-codes status)))
+      (throw (ex-info "Request to GitHub failed"
+                      {:response (-> response
+                                     (assoc-in [:opts :headers "Authorization"] "<REDACTED>")
+                                     (update-in [:opts :body] #(str "<JSON PAYLOAD WITH " (count %) " BYTES>"))) #_(select-keys response [:status :body])
+                       :opts     (-> opts
+                                     (assoc-in [:headers "Authorization"] "<REDACTED>")
+                                     (update-in [:body] #(str "<JSON PAYLOAD WITH " (count %) " BYTES>")))}
+                      error))
 
-;; (in-ns 'ordnungsamt.core);;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
+      :else
+      (assoc response :body (parse-body (content-type response) body)))))
+
+(in-ns 'ordnungsamt.core);;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
 (in-ns 'clj-github.repository)
 (defn create-tree!
