@@ -240,6 +240,20 @@
 
 ;; (in-ns 'ordnungsamt.core);;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;;
 
+(in-ns 'clj-github.repository)
+(defn create-tree!
+  "Creates a new tree.
+
+  Look at https://developer.github.com/v3/git/trees/#create-a-tree for details about the parameters and response format"
+  [client org repo params]
+  (fetch-body! client {:method :post
+                       :path (format "/repos/%s/%s/git/trees" org repo)
+                       :headers {"Accept" "application/vnd.github+json"
+                                 "X-GitHub-Api-Version" "2022-11-28"}
+                       :body params}))
+
+(in-ns 'ordnungsamt.core)
+
 (defn -main [& [org service default-branch repository-directory migrations-directory token-fn run-locally?]]
   (if run-locally?
     (run-locally/run-locally!
