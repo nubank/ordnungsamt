@@ -1,6 +1,7 @@
 (ns integration.aux.helpers
   (:require [clj-github.repository :as repository]
             [clj-github.state-flow-helper :refer [with-github-client]]
+            [clojure.edn :as edn]
             [ordnungsamt.core :as core]
             [state-flow.api :refer [flow match?] :as flow]))
 
@@ -30,5 +31,5 @@
                            #(repository/get-content!
                              % org repository core/applied-migrations-file {:ref branch}))]
     (match? expected-migration-id-set
-      (set (map :id (read-string migrations-contents))))))
+      (set (map :id (edn/read-string migrations-contents))))))
 
