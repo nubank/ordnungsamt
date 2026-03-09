@@ -4,6 +4,7 @@
             [clj-github.issue :as issue]
             [clj-github.pull :as pull]
             [clj-github.token :as token]
+            [clojure.edn :as edn]
             [clojure.java.io :as io]
             [clojure.java.shell :refer [sh]]
             [clojure.pprint :refer [pprint]]
@@ -32,7 +33,7 @@
 (defn- read-registered-migrations [dir]
   (let [applied-migrations-filepath (str dir "/" applied-migrations-file)]
     (if (.exists (io/file applied-migrations-filepath))
-      (read-string (slurp applied-migrations-filepath))
+      (edn/read-string (slurp applied-migrations-filepath))
       [])))
 
 (defn- register-migration! [dir {:keys [id title] :as _migration}]
@@ -191,7 +192,7 @@
   (-> migrations-directory
       (str "/migrations.edn")
       slurp
-      read-string))
+      edn/read-string))
 
 (defn load+run-migrations! [github-client org service default-branch repository-directory migrations-directory]
   (let [target-branch (str "auto-refactor-" (utils/today))
