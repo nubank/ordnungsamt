@@ -113,7 +113,7 @@
 
 (defn- apply+commit-migration!
   [repo-dir
-   {:keys [branch] :as base-changeset}
+   base-changeset
    {:keys [title] :as migration}]
   (let [commit-message (str "the ordnungsamt applying " title)
         success?       (apply-migration! migration repo-dir)]
@@ -128,9 +128,7 @@
                                    (apply clojure.set/union))
                 changeset'    {:changeset   (-> base-changeset
                                                 (add-file-changes repo-dir changed-files)
-                                                (changeset/commit! commit-message)
-                                                (assoc :branch branch)
-                                                changeset/update-branch!)
+                                                (changeset/commit! commit-message))
                                :description (select-keys migration [:title :created-at :description])}]
             (local-commit! title files-for-pr repo-dir)
             changeset'))
@@ -141,11 +139,14 @@
     [changeset (conj details description)]
     [current-changeset details]))
 
-(defn- create-branch+run-base-migrations!
-  [github-client organization service default-branch target-branch repo-dir migrations]
-  (let [base-changeset (-> github-client
-                           (changeset/from-branch! organization service default-branch)
-                           (changeset/create-branch! target-branch))]
+(defn- run-base-migrations!
+  "Applies the base migrations against commits built on top of the default branch,
+  without ever creating a branch ref on GitHub. Deferring ref creation (and the
+  push event it generates) until we know a PR will actually be opened avoids
+  pushing a target-branch ref that consumers may race to check out and that
+  would otherwise need to be deleted again when no migration produced changes."
+  [github-client organization service default-branch repo-dir migrations]
+  (let [base-changeset (changeset/from-branch! github-client organization service default-branch)]
     (reduce (partial run-migration! repo-dir)
             [base-changeset []]
             migrations)))
@@ -164,14 +165,14 @@
   (reduce (fn [acc f] (fn [value] (and (acc value) (f value)))) (constantly true) filters))
 
 (defn run-migrations!* [github-client organization service default-branch target-branch repo-dir migrations]
-  (let [[changeset details] (create-branch+run-base-migrations!
-                             github-client organization service default-branch target-branch repo-dir (:migrations migrations))]
-    (if (seq details)
-      (let [[changeset' _] (reduce (partial run-migration! repo-dir)
-                                   [changeset details]
-                                   (:post migrations))]
-        (create-migration-pr! github-client changeset' details default-branch))
-      (changeset/delete-branch! changeset))))
+  (let [[changeset details] (run-base-migrations!
+                             github-client organization service default-branch repo-dir (:migrations migrations))]
+    (when (seq details)
+      (let [[changeset' _]      (reduce (partial run-migration! repo-dir)
+                                        [changeset details]
+                                        (:post migrations))
+            branched-changeset (changeset/create-branch! changeset' target-branch)]
+        (create-migration-pr! github-client branched-changeset details default-branch)))))
 
 (defn run-migrations! [github-client organization service default-branch target-branch repo-dir migrations]
   (let [migrations-filter (compose-filters [(filter-registered-migrations repo-dir)
