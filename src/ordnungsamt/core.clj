@@ -140,11 +140,8 @@
     [current-changeset details]))
 
 (defn- run-base-migrations!
-  "Applies the base migrations against commits built on top of the default branch,
-  without ever creating a branch ref on GitHub. Deferring ref creation (and the
-  push event it generates) until we know a PR will actually be opened avoids
-  pushing a target-branch ref that consumers may race to check out and that
-  would otherwise need to be deleted again when no migration produced changes."
+  "Applies the base migrations as commits on top of the default branch,
+  without creating a branch ref on GitHub."
   [github-client organization service default-branch repo-dir migrations]
   (let [base-changeset (changeset/from-branch! github-client organization service default-branch)]
     (reduce (partial run-migration! repo-dir)
